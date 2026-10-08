@@ -4,7 +4,7 @@ A local-first, mobile-first commerce storefront for Manvelle Menswear Ghana. The
 
 ## Project status
 
-The repository foundation and initial database schema are in place on `development`. The storefront, public database policies, and order-creation flow are not complete yet. See [the project handoff](./docs/PROJECT-HANDOFF.md) for milestones and the current continuation point.
+The repository foundation, database schema, restrictive RLS policies, and secure guest-order RPC are in place on `development`. Catalogue integration, storefront, checkout UI, analytics, and production setup remain. See [the project handoff](./docs/PROJECT-HANDOFF.md) for milestones and the current continuation point.
 
 ## Technology
 
@@ -57,8 +57,10 @@ Database migrations are the source of truth for schema changes. Local seed fixtu
 ## Security and environment boundaries
 
 - The browser is untrusted. Prices, totals, stock, order privacy, and order state must be enforced in PostgreSQL or a controlled database function.
-- Anonymous and authenticated users can read only active catalogue items and delivery zones. Orders and order items have no public grants or policies; the controlled order-creation mechanism must be implemented before checkout is enabled.
+- Anonymous and authenticated users can read only active catalogue items and delivery zones. Orders and order items have no direct public grants or policies.
 - Default privileges and local Supabase API settings require explicit grants before newly created public-schema objects are exposed.
+- Guest orders must use `public.create_guest_order`; it accepts an idempotency UUID, customer and delivery fields, and a JSON array of `{ "product_id", "variant_id", "quantity" }` items. Client-supplied prices and totals are rejected.
+- The order RPC returns only a non-sensitive confirmation summary. It normalizes Ghanaian phone numbers, reads prices and delivery fees from the database, and reserves stock atomically. Cancellation restores stock once; failed-delivery restocking remains a staff action.
 - Only the Supabase anon/publishable key may be used in the browser. Never use the service-role key in Vite configuration.
 - Keep local and production Supabase projects separate. Production credentials are not used for ordinary local development.
 - Do not deploy until local database, security, and end-to-end checks pass. After approval, tested work is promoted from `development` to `main`, the deployment branch.
