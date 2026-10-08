@@ -104,7 +104,7 @@ Proceed one phase at a time, recording a milestone and updating this handoff aft
 3. Row-level security and database access policies — complete
 4. Secure, authoritative order-creation mechanism — complete
 5. Catalogue access and local fixtures — complete
-6. Cart and guest checkout
+6. Cart and guest checkout — complete
 7. Order confirmation and WhatsApp handoff
 8. Analytics foundation
 9. Storefront UX, accessibility, SEO, and visual polish
@@ -139,5 +139,33 @@ Proceed one phase at a time, recording a milestone and updating this handoff aft
 ### Handoff / next phase
 
 The next proposed phase is **Cart and guest checkout**. It may add client-side cart state and checkout form UI, but the database `create_guest_order` RPC remains authoritative for current prices, delivery fees, availability, inventory reservation, and order creation. Continue using the synthetic local fixtures only. No production credentials, real product data, Storage uploads, or deployment are in scope.
+
+**Waiting for user approval before starting the next phase.**
+
+## Milestone 6 — Cart and guest checkout
+
+**Status:** Complete
+
+**Branch:** `development`
+
+### Delivered
+
+- Replaced the placeholder view with a responsive catalogue, size selection, stock-aware in-memory cart, and guest cash-on-delivery checkout.
+- Cart lines reference only product and variant IDs plus quantity. Browser-estimated prices are clearly labeled and never sent as authoritative order values.
+- Added validated delivery details, availability checks, an idempotency key, and safe retry behavior for ambiguous network outcomes. The checkout uses only `public.create_guest_order`, and order success is shown only after validating its database-generated confirmation.
+- Added scroll reset when moving between storefront, checkout, and confirmation views.
+- Every active local synthetic product now has at least four active size variants. Variant labels and ordering remain configurable per product in Supabase; examples can differ for shirts, T-shirts, and trousers. The storefront withholds cards until four active size rows exist. Admins should keep a product inactive until at least four active size rows and accurate stock are ready. There is no frontend admin interface; data is managed through authorized Supabase Dashboard access, while public clients remain read-only.
+- Added a migration for `product_variants.sort_order`, used by the catalogue to display admin-configured sizes in the intended order.
+
+### Verification
+
+- `npm run build`, TypeScript diagnostics, and `git diff --check` passed.
+- Browser smoke testing against intercepted, synthetic catalogue and RPC responses verified product browsing, size selection, cart updates, invalid-phone rejection, and display of the validated order confirmation. This was a frontend mock only, not a live Supabase end-to-end test.
+- The `create_guest_order` client sends only item product IDs, variant IDs, and quantities; prices and totals remain database-authoritative.
+- The full local Supabase stack was not available for this phase. The production project, real products, real customer information, and deployment were not touched.
+
+### Handoff / next phase
+
+The next proposed phase is **Order confirmation and WhatsApp handoff**. Expand the confirmation experience and implement the specified post-order WhatsApp handoff without exposing customer/order data unnecessarily. Verify the destination and message behavior against approved business requirements before release. Continue to use synthetic local fixtures and database-authoritative order creation.
 
 **Waiting for user approval before starting the next phase.**

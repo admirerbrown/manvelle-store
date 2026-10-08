@@ -30,6 +30,7 @@ type ProductVariantRow = {
   id: string;
   product_id: string;
   size: string;
+  sort_order: number;
   sku: string | null;
   stock_quantity: number;
   active: boolean;

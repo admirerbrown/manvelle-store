@@ -71,9 +71,10 @@ async function loadProducts({
   const [variantsResult, imagesResult] = await Promise.all([
     client
       .from("product_variants")
-      .select("id,product_id,size,sku,stock_quantity")
+      .select("id,product_id,size,sort_order,sku,stock_quantity")
       .in("product_id", productIds)
       .eq("active", true)
+      .order("sort_order", { ascending: true })
       .order("size", { ascending: true }),
     client
       .from("product_images")

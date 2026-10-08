@@ -44,12 +44,13 @@ on conflict (id) do update set
   featured = excluded.featured;
 
 insert into public.product_variants (
-  id, product_id, size, sku, stock_quantity, active
+  id, product_id, size, sort_order, sku, stock_quantity, active
 ) values
   (
     '00000000-0000-4000-8000-000000000011',
     '00000000-0000-4000-8000-000000000001',
     'S',
+    10,
     'SYN-TEE-S',
     3,
     true
@@ -58,14 +59,34 @@ insert into public.product_variants (
     '00000000-0000-4000-8000-000000000012',
     '00000000-0000-4000-8000-000000000001',
     'M',
+    20,
     'SYN-TEE-M',
     0,
+    true
+  ),
+  (
+    '00000000-0000-4000-8000-000000000013',
+    '00000000-0000-4000-8000-000000000001',
+    'L',
+    30,
+    'SYN-TEE-L',
+    2,
+    true
+  ),
+  (
+    '00000000-0000-4000-8000-000000000014',
+    '00000000-0000-4000-8000-000000000001',
+    'XL',
+    40,
+    'SYN-TEE-XL',
+    1,
     true
   ),
   (
     '00000000-0000-4000-8000-000000000021',
     '00000000-0000-4000-8000-000000000002',
     'M',
+    10,
     'SYN-JKT-M',
     1,
     true
@@ -74,14 +95,34 @@ insert into public.product_variants (
     '00000000-0000-4000-8000-000000000022',
     '00000000-0000-4000-8000-000000000002',
     'L',
+    20,
     'SYN-JKT-L',
     5,
+    true
+  ),
+  (
+    '00000000-0000-4000-8000-000000000023',
+    '00000000-0000-4000-8000-000000000002',
+    'XL',
+    30,
+    'SYN-JKT-XL',
+    2,
+    true
+  ),
+  (
+    '00000000-0000-4000-8000-000000000024',
+    '00000000-0000-4000-8000-000000000002',
+    'XXL',
+    40,
+    'SYN-JKT-XXL',
+    0,
     true
   ),
   (
     '00000000-0000-4000-8000-000000000031',
     '00000000-0000-4000-8000-000000000003',
     'L',
+    10,
     'SYN-INACTIVE-L',
     2,
     true
@@ -89,6 +130,7 @@ insert into public.product_variants (
 on conflict (id) do update set
   product_id = excluded.product_id,
   size = excluded.size,
+  sort_order = excluded.sort_order,
   sku = excluded.sku,
   stock_quantity = excluded.stock_quantity,
   active = excluded.active;

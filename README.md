@@ -4,7 +4,7 @@ A local-first, mobile-first commerce storefront for Manvelle Menswear Ghana. The
 
 ## Project status
 
-The repository foundation, database schema, restrictive RLS policies, secure guest-order RPC, and typed catalogue reads are in place on `development`. The local seed is explicitly synthetic and is not real Manvelle product, pricing, delivery, or customer data. Storefront, checkout UI, analytics, and production setup remain. See [the project handoff](./docs/PROJECT-HANDOFF.md) for milestones and the current continuation point.
+The repository foundation, database schema, restrictive RLS policies, secure guest-order RPC, typed catalogue reads, cart, and guest checkout are in place on `development`. The local seed is explicitly synthetic and is not real Manvelle product, pricing, delivery, or customer data. Expanded order confirmation, WhatsApp handoff, analytics, and production setup remain. See [the project handoff](./docs/PROJECT-HANDOFF.md) for milestones and the current continuation point.
 
 ## Technology
 
@@ -46,6 +46,8 @@ The example environment values are placeholders for local development. Start Sup
 src/
   app/                   Application entry and top-level UI
   features/catalogue/    Typed catalogue and delivery-area reads
+  features/cart/         In-memory cart and availability checks
+  features/checkout/     Guest checkout and authoritative RPC client
   lib/supabase/          Supabase client configuration
 supabase/
   migrations/            Versioned PostgreSQL schema and policy changes
@@ -56,6 +58,12 @@ docs/
 ```
 
 Database migrations are the source of truth for schema changes. `npm run db:reset` loads clearly labeled synthetic products, sizes, stock, product illustrations, and one synthetic delivery area for local development. These fixtures are not real Manvelle products, prices, stock levels, delivery areas, or customer information and must not be used to seed production.
+
+### Managing product sizes
+
+Product sizes are data-driven: each product card renders the active variant rows configured for that product, rather than a fixed frontend size list. Configure at least four active rows in `public.product_variants` for each product. The storefront omits a style card until it has four active sizes, so incomplete product setup cannot expose a card with fewer choices. Sizes can differ by product category—for example, a shirt might use `L`, `XL`, `2XL`, and `3XL`, while trousers might use numeric waist sizes such as `32`, `34`, `36`, and `38`. These are examples only; admins should enter Manvelle's actual ranges and stock.
+
+For now, admins manage product and variant rows in the Supabase Dashboard using authorized project access; there is no storefront admin interface. Set `sort_order` in ascending steps (for example, `10`, `20`, `30`, `40`) to control the displayed size order. Keep a product inactive until its size rows are ready. Set each variant's stock accurately; a zero-stock size remains visible but cannot be added to the bag. The public storefront can read active catalogue rows but cannot write them. Never expose a service-role key in the browser.
 
 The catalogue service reads only active products, variants, images, and delivery zones; database RLS independently enforces the same visibility boundary. Image paths beginning with `local-fixtures/` resolve to `supabase/seed_assets/` in the Vite development server. Other image paths resolve through the public `product-images` Supabase Storage bucket; production bucket setup and real product uploads are deferred until the approved production-preparation phase. The browser uses only the anon/publishable key.
 
