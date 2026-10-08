@@ -4,7 +4,7 @@ A local-first, mobile-first commerce storefront for Manvelle Menswear Ghana. The
 
 ## Project status
 
-The repository foundation, database schema, restrictive RLS policies, secure guest-order RPC, typed catalogue reads, cart, and guest checkout are in place on `development`. The local seed is explicitly synthetic and is not real Manvelle product, pricing, delivery, or customer data. Expanded order confirmation, WhatsApp handoff, analytics, and production setup remain. See [the project handoff](./docs/PROJECT-HANDOFF.md) for milestones and the current continuation point.
+The repository foundation, database schema, restrictive RLS policies, secure guest-order RPC, typed catalogue reads, cart, guest checkout, detailed order confirmation, and click-to-WhatsApp handoff are in place on `development`. The local seed is explicitly synthetic and is not real Manvelle product, pricing, delivery, or customer data. Analytics and production setup remain. See [the project handoff](./docs/PROJECT-HANDOFF.md) for milestones and the current continuation point.
 
 ## Technology
 
@@ -25,7 +25,7 @@ npm run db:start
 npm run dev
 ```
 
-The example environment values are placeholders for local development. Start Supabase before using database-backed features. Never put a service-role key, database password, or other secret in a `VITE_` variable.
+The Supabase example values are placeholders for local development. `VITE_WHATSAPP_NUMBER` is a public contact destination in international format without `+`; it is included in the site link, not treated as a secret. Start Supabase before using database-backed features. Never put a service-role key, database password, or other secret in a `VITE_` variable.
 
 ## Useful commands
 
@@ -74,6 +74,7 @@ The catalogue service reads only active products, variants, images, and delivery
 - Default privileges and local Supabase API settings require explicit grants before newly created public-schema objects are exposed.
 - Guest orders must use `public.create_guest_order`; it accepts an idempotency UUID, customer and delivery fields, and a JSON array of `{ "product_id", "variant_id", "quantity" }` items. Client-supplied prices and totals are rejected.
 - The order RPC returns only a non-sensitive confirmation summary. It normalizes Ghanaian phone numbers, reads prices and delivery fees from the database, and reserves stock atomically. Cancellation restores stock once; failed-delivery restocking remains a staff action.
+- WhatsApp opens only after the order RPC confirms creation. The prefilled message includes the public order number only; it does not include the customer's name, phone number, or street address, and the customer must explicitly send the message.
 - Only the Supabase anon/publishable key may be used in the browser. Never use the service-role key in Vite configuration.
 - Keep local and production Supabase projects separate. Production credentials are not used for ordinary local development.
 - Do not deploy until local database, security, and end-to-end checks pass. After approval, tested work is promoted from `development` to `main`, the deployment branch.

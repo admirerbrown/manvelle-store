@@ -11,7 +11,19 @@ export type GuestOrderInput = {
 
 export type GuestOrderConfirmation = {
   orderNumber: string;
+  items: GuestOrderConfirmationItem[];
+  subtotal: number;
+  deliveryFee: number;
   total: number;
+  deliveryZone: string;
+};
+
+export type GuestOrderConfirmationItem = {
+  productName: string;
+  size: string;
+  unitPrice: number;
+  quantity: number;
+  subtotal: number;
 };
 
 export class GuestOrderSubmissionError extends Error {
@@ -81,10 +93,28 @@ function parseConfirmation(value: unknown): GuestOrderConfirmation {
     !isRecord(value) ||
     typeof value.order_number !== "string" ||
     !/^MNV-\d+$/.test(value.order_number) ||
-    typeof value.total !== "number" ||
-    !Number.isFinite(value.total) ||
-    value.total < 0 ||
-    value.payment_method !== "cash_on_delivery"
+    !isNonnegativeAmount(value.subtotal) ||
+    !isNonnegativeAmount(value.delivery_fee) ||
+    !isNonnegativeAmount(value.total) ||
+    value.payment_method !== "cash_on_delivery" ||
+    typeof value.delivery_zone !== "string" ||
+    value.delivery_zone.trim().length === 0 ||
+    !Array.isArray(value.items) ||
+    value.items.length === 0
+  ) {
+    throw new GuestOrderSubmissionError(
+      "We couldn't read the order confirmation. Retry the same submission to verify it safely.",
+      false,
+    );
+  }
+
+  const items = value.items.map(parseConfirmationItem);
+  if (
+    items.some((item) => item === null) ||
+    sumCents(items.map((item) => item?.subtotal ?? 0)) !==
+      toCents(value.subtotal) ||
+    toCents(value.total) !==
+      toCents(value.subtotal) + toCents(value.delivery_fee)
   ) {
     throw new GuestOrderSubmissionError(
       "We couldn't read the order confirmation. Retry the same submission to verify it safely.",
@@ -94,8 +124,52 @@ function parseConfirmation(value: unknown): GuestOrderConfirmation {
 
   return {
     orderNumber: value.order_number,
+    items: items.filter((item) => item !== null),
+    subtotal: value.subtotal,
+    deliveryFee: value.delivery_fee,
     total: value.total,
+    deliveryZone: value.delivery_zone,
   };
+}
+
+function parseConfirmationItem(
+  value: unknown,
+): GuestOrderConfirmationItem | null {
+  if (
+    !isRecord(value) ||
+    typeof value.product_name !== "string" ||
+    value.product_name.trim().length === 0 ||
+    typeof value.size !== "string" ||
+    value.size.trim().length === 0 ||
+    !isNonnegativeAmount(value.unit_price) ||
+    !Number.isInteger(value.quantity) ||
+    typeof value.quantity !== "number" ||
+    value.quantity < 1 ||
+    !isNonnegativeAmount(value.subtotal) ||
+    toCents(value.subtotal) !== toCents(value.unit_price) * value.quantity
+  ) {
+    return null;
+  }
+
+  return {
+    productName: value.product_name,
+    size: value.size,
+    unitPrice: value.unit_price,
+    quantity: value.quantity,
+    subtotal: value.subtotal,
+  };
+}
+
+function isNonnegativeAmount(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function toCents(amount: number): number {
+  return Math.round(amount * 100);
+}
+
+function sumCents(amounts: number[]): number {
+  return amounts.reduce((sum, amount) => sum + toCents(amount), 0);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

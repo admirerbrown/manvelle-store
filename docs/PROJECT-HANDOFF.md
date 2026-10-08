@@ -105,7 +105,7 @@ Proceed one phase at a time, recording a milestone and updating this handoff aft
 4. Secure, authoritative order-creation mechanism — complete
 5. Catalogue access and local fixtures — complete
 6. Cart and guest checkout — complete
-7. Order confirmation and WhatsApp handoff
+7. Order confirmation and WhatsApp handoff — complete
 8. Analytics foundation
 9. Storefront UX, accessibility, SEO, and visual polish
 10. Local end-to-end, backend, and security verification
@@ -139,6 +139,31 @@ Proceed one phase at a time, recording a milestone and updating this handoff aft
 ### Handoff / next phase
 
 The next proposed phase is **Cart and guest checkout**. It may add client-side cart state and checkout form UI, but the database `create_guest_order` RPC remains authoritative for current prices, delivery fees, availability, inventory reservation, and order creation. Continue using the synthetic local fixtures only. No production credentials, real product data, Storage uploads, or deployment are in scope.
+
+**Waiting for user approval before starting the next phase.**
+
+## Milestone 7 — Order confirmation and WhatsApp handoff
+
+**Status:** Complete
+
+**Branch:** `development`
+
+### Delivered
+
+- Expanded the RPC response validation to require the actual order lines, line prices/subtotals, order subtotal, delivery fee, total, delivery area, order number, and cash-on-delivery method. Money totals are checked in cents before the response can become a customer confirmation.
+- The confirmation page displays the database-returned products, sizes, quantities, subtotal, delivery fee, total, payment method, and delivery area. Customer phone and street address are not included in the returned confirmation.
+- Added a click-to-WhatsApp action targeting the owner-provided public number via `VITE_WHATSAPP_NUMBER`. The draft contains only the confirmed public order number; it does not contain customer name, phone, or address. Nothing is sent automatically, and the order exists before the action appears.
+- Documented the public contact setting and safe message contents. No messaging backend, Evolution API, n8n, or WhatsApp Cloud API was added.
+
+### Verification
+
+- `npm run build`, targeted TypeScript diagnostics, and `git diff --check` passed.
+- A browser smoke test used synthetic catalogue and RPC responses to verify the order-line summary, database-returned totals and delivery area, and a WhatsApp link to the configured destination. The generated message contained the order number only. This was a frontend mock, not a live Supabase end-to-end run.
+- The WhatsApp destination was inspected but not opened or sent to. No real customer or production order data was used.
+
+### Handoff / next phase
+
+The next proposed phase is **Analytics foundation**. Review the approved analytics events and consent/data minimization requirements before wiring any tracking. Do not add pixel IDs or production analytics credentials until they are supplied and the local event behavior is verified.
 
 **Waiting for user approval before starting the next phase.**
 

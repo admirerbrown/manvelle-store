@@ -15,6 +15,19 @@ import { formatGhs } from "../lib/format-currency";
 type View = "shop" | "checkout" | "confirmation";
 const minimumProductVariantCount = 4;
 
+function getWhatsAppHandoffUrl(orderNumber: string): string | null {
+  const businessNumber = import.meta.env.VITE_WHATSAPP_NUMBER?.replace(
+    /\D/g,
+    "",
+  );
+  if (!businessNumber || !/^\d{8,15}$/.test(businessNumber)) {
+    return null;
+  }
+
+  const message = `Hello Manvelle, I just placed order ${orderNumber}. Please confirm my order.`;
+  return `https://wa.me/${businessNumber}?text=${encodeURIComponent(message)}`;
+}
+
 export function App() {
   const [products, setProducts] = useState<CatalogueProduct[]>([]);
   const [deliveryZones, setDeliveryZones] = useState<CatalogueDeliveryZone[]>(
@@ -140,6 +153,9 @@ export function App() {
     cartItems.length > 0 && checkoutBlockMessage === null;
 
   const cartQuantity = cart.reduce((total, item) => total + item.quantity, 0);
+  const whatsappHandoffUrl = confirmation
+    ? getWhatsAppHandoffUrl(confirmation.orderNumber)
+    : null;
 
   function handleAddToCart(
     product: CatalogueProduct,
@@ -467,10 +483,35 @@ export function App() {
             <p className="eyebrow">Order received</p>
             <h1 id="confirmation-title">Thank you for your order.</h1>
             <p>
-              Your order has been recorded. Keep your phone available for
-              delivery coordination.
+              Your order has been recorded. Continue in WhatsApp to confirm
+              your order and coordinate delivery.
             </p>
+            <ul className="confirmation__items" aria-label="Items in your order">
+              {confirmation.items.map((item, index) => (
+                <li
+                  className="confirmation__item"
+                  key={`${item.productName}-${item.size}-${index}`}
+                >
+                  <span className="confirmation__item-description">
+                    <strong>{item.productName}</strong>
+                    <span>
+                      Size {item.size} x {item.quantity} -{" "}
+                      {formatGhs(item.unitPrice)} each
+                    </span>
+                  </span>
+                  <strong>{formatGhs(item.subtotal)}</strong>
+                </li>
+              ))}
+            </ul>
             <dl className="confirmation__details">
+              <div>
+                <dt>Subtotal</dt>
+                <dd>{formatGhs(confirmation.subtotal)}</dd>
+              </div>
+              <div>
+                <dt>Delivery</dt>
+                <dd>{formatGhs(confirmation.deliveryFee)}</dd>
+              </div>
               <div>
                 <dt>Order number</dt>
                 <dd>{confirmation.orderNumber}</dd>
@@ -480,10 +521,29 @@ export function App() {
                 <dd>{formatGhs(confirmation.total)}</dd>
               </div>
               <div>
+                <dt>Delivery area</dt>
+                <dd>{confirmation.deliveryZone}</dd>
+              </div>
+              <div>
                 <dt>Payment</dt>
                 <dd>Cash on Delivery</dd>
               </div>
             </dl>
+            {whatsappHandoffUrl ? (
+              <a
+                className="button button--dark"
+                href={whatsappHandoffUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Continue in WhatsApp
+              </a>
+            ) : (
+              <p className="confirmation__whatsapp-status" role="status">
+                WhatsApp handoff is unavailable because its business number is
+                not configured.
+              </p>
+            )}
             <button
               className="button button--dark"
               type="button"

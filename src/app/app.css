@@ -296,6 +296,7 @@ a {
   border-radius: 0;
   font-size: 0.9rem;
   font-weight: 700;
+  text-decoration: none;
   transition:
     background-color 120ms ease,
     color 120ms ease;
@@ -528,9 +529,44 @@ a {
   font-size: clamp(2.5rem, 6vw, 4.5rem);
 }
 
+.confirmation__items {
+  margin: 2rem 0 0;
+  padding: 0;
+  border-top: 1px solid #ded9cf;
+  list-style: none;
+}
+
+.confirmation__item {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid #ded9cf;
+}
+
+.confirmation__item-description {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.confirmation__item-description > span {
+  color: #65695f;
+}
+
+.confirmation__item > strong {
+  text-align: right;
+  white-space: nowrap;
+}
+
 .confirmation > p:not(.eyebrow) {
   color: #65695f;
   line-height: 1.65;
+}
+
+.confirmation__whatsapp-status {
+  margin-top: 1.5rem;
+  color: #8f3d32;
+  line-height: 1.5;
 }
 
 .confirmation__details {
