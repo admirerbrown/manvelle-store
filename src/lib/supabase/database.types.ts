@@ -90,6 +90,18 @@ export type Database = {
     };
     Views: { [_ in never]: never };
     Functions: {
+      track_storefront_event: {
+        Args: {
+          p_event_name: string;
+          p_session_id: string;
+          p_product_id?: string | null;
+          p_variant_id?: string | null;
+          p_quantity?: number | null;
+          p_order_number?: string | null;
+          p_page?: string | null;
+        };
+        Returns: undefined;
+      };
       create_guest_order: {
         Args: {
           p_idempotency_key: string;

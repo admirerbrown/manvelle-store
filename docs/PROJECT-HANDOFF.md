@@ -106,7 +106,7 @@ Proceed one phase at a time, recording a milestone and updating this handoff aft
 5. Catalogue access and local fixtures — complete
 6. Cart and guest checkout — complete
 7. Order confirmation and WhatsApp handoff — complete
-8. Analytics foundation
+8. Analytics foundation — complete
 9. Storefront UX, accessibility, SEO, and visual polish
 10. Local end-to-end, backend, and security verification
 11. Production configuration and deployment readiness
@@ -164,6 +164,34 @@ The next proposed phase is **Cart and guest checkout**. It may add client-side c
 ### Handoff / next phase
 
 The next proposed phase is **Analytics foundation**. Review the approved analytics events and consent/data minimization requirements before wiring any tracking. Do not add pixel IDs or production analytics credentials until they are supplied and the local event behavior is verified.
+
+**Waiting for user approval before starting the next phase.**
+
+## Milestone 8 — Privacy-safe storefront analytics foundation
+
+**Status:** Complete
+
+**Branch:** `development`
+
+### Delivered
+
+- Added tracking for `page_view`, `product_view`, `product_variant_selected`, `add_to_cart`, `checkout_started`, `order_created`, `order_confirmed`, `order_delivered`, and `order_paid`.
+- Browser events use a typed client service and a narrowly validated RPC. Order creation, delivery, and payment events are emitted by database triggers; browser roles cannot forge those lifecycle events.
+- Events are stored in a private table with no browser read access. The data is limited to event timestamps, random tab-scoped session IDs, relevant product/variant/order references, quantity, and approved page labels. Customer names, phone numbers, addresses, raw URLs, and external analytics vendors are not included.
+- Provisioned a daily `pg_cron` cleanup at 03:00 UTC that deletes events older than 12 months, per the approved retention period. Duplicate scheduling is safely replaced by the migration.
+- Added README documentation for analytics, privacy boundaries, and retention.
+
+### Verification
+
+- Confirmed the Supabase PostgreSQL 17 image provides `pg_cron` and the `cron.schedule` API; applied all migrations and synthetic seed data to an isolated database.
+- Verified each of the nine event types, deduplication for order confirmation, and automatic database lifecycle events.
+- Confirmed anonymous clients cannot read private events, forge server-generated lifecycle events, or submit mismatched product/variant data. Verified the named retention job is scheduled with the 12-month cutoff.
+- `npm run build`, targeted TypeScript diagnostics, and `git diff --check` passed.
+- No external analytics accounts, pixel IDs, production credentials, or real customer data were used.
+
+### Handoff / next phase
+
+The next proposed phase is **Storefront UX, accessibility, SEO, and visual polish**. Review the storefront as it exists, then make approved improvements without changing the validated order, stock, privacy, or analytics boundaries.
 
 **Waiting for user approval before starting the next phase.**
 

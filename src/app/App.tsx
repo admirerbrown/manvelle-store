@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getCatalogueDeliveryZones,
   getCatalogueProducts,
@@ -6,6 +6,8 @@ import {
   type CatalogueProduct,
   type CatalogueVariant,
 } from "../features/catalogue/catalogue.service";
+import { ProductCard } from "../features/catalogue/ProductCard";
+import { trackStorefrontEvent } from "../features/analytics/analytics.service";
 import { CartPanel, type CartItemView } from "../features/cart/CartPanel";
 import type { CartLine } from "../features/cart/cart.types";
 import { CheckoutForm } from "../features/checkout/CheckoutForm";
@@ -44,9 +46,18 @@ export function App() {
   const [catalogueError, setCatalogueError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshVersion, setRefreshVersion] = useState(0);
+  const lastTrackedPage = useRef<View | null>(null);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
+  }, [view]);
+
+  useEffect(() => {
+    if (lastTrackedPage.current === view) {
+      return;
+    }
+    lastTrackedPage.current = view;
+    trackStorefrontEvent({ name: "page_view", page: view });
   }, [view]);
 
   useEffect(() => {
@@ -198,6 +209,12 @@ export function App() {
         },
       ];
     });
+    trackStorefrontEvent({
+      name: "add_to_cart",
+      productId: product.id,
+      variantId: variant.id,
+      quantity: 1,
+    });
     setCartMessage(`${product.name}, size ${variant.size}, added to your bag.`);
   }
 
@@ -216,6 +233,10 @@ export function App() {
   }
 
   function handleOrderCreated(order: GuestOrderConfirmation) {
+    trackStorefrontEvent({
+      name: "order_confirmed",
+      orderNumber: order.orderNumber,
+    });
     setConfirmation(order);
     setCart([]);
     setCartMessage(null);
@@ -225,6 +246,14 @@ export function App() {
   function continueShopping() {
     setConfirmation(null);
     setView("shop");
+  }
+
+  function handleProceedToCheckout() {
+    if (!canProceedToCheckout) {
+      return;
+    }
+    trackStorefrontEvent({ name: "checkout_started" });
+    setView("checkout");
   }
 
   return (
@@ -334,115 +363,26 @@ export function App() {
               {!catalogueError && productsWithEnoughSizes.length > 0 && (
                 <div className="product-grid">
                   {productsWithEnoughSizes.map((product) => {
-                    const firstAvailableVariant = product.variants.find(
-                      (variant) => variant.stock_quantity > 0,
-                    );
                     const selectedVariantId =
                       selectedVariantIds[product.id] ??
-                      firstAvailableVariant?.id ??
+                      product.variants.find(
+                        (variant) => variant.stock_quantity > 0,
+                      )?.id ??
                       "";
-                    const selectedVariant = product.variants.find(
-                      (variant) => variant.id === selectedVariantId,
-                    );
-                    const isAvailable = product.variants.some(
-                      (variant) => variant.stock_quantity > 0,
-                    );
 
                     return (
-                      <article className="product-card" key={product.id}>
-                        <div className="product-card__image-wrap">
-                          {product.images[0] ? (
-                            <img
-                              className="product-card__image"
-                              src={product.images[0].url}
-                              alt={product.images[0].alt_text || product.name}
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div
-                              className="product-card__image-placeholder"
-                              role="img"
-                              aria-label={`Image unavailable for ${product.name}`}
-                            >
-                              Image coming soon
-                            </div>
-                          )}
-                          {product.featured && (
-                            <span className="product-card__badge">
-                              Featured
-                            </span>
-                          )}
-                        </div>
-                        <div className="product-card__content">
-                          <div className="product-card__title-row">
-                            <h3>{product.name}</h3>
-                            <span className="product-card__price">
-                              {formatGhs(product.price)}
-                            </span>
-                          </div>
-                          <p className="product-card__description">
-                            {product.description}
-                          </p>
-                          <label
-                            className="field-label"
-                            htmlFor={`size-${product.id}`}
-                          >
-                            Size
-                          </label>
-                          <select
-                            id={`size-${product.id}`}
-                            value={selectedVariantId}
-                            onChange={(event) =>
-                              setSelectedVariantIds((current) => ({
-                                ...current,
-                                [product.id]: event.target.value,
-                              }))
-                            }
-                            disabled={product.variants.length === 0}
-                          >
-                            {product.variants.length === 0 && (
-                              <option value="">No sizes available</option>
-                            )}
-                            {product.variants.map((variant) => (
-                              <option
-                                key={variant.id}
-                                value={variant.id}
-                                disabled={variant.stock_quantity === 0}
-                              >
-                                {variant.size}
-                                {variant.stock_quantity === 0
-                                  ? " - out of stock"
-                                  : ""}
-                              </option>
-                            ))}
-                          </select>
-                          <div className="product-card__footer">
-                            <span
-                              className={
-                                isAvailable
-                                  ? "stock-label"
-                                  : "stock-label stock-label--unavailable"
-                              }
-                            >
-                              {isAvailable ? "Available" : "Out of stock"}
-                            </span>
-                            <button
-                              className="button button--dark"
-                              type="button"
-                              disabled={
-                                !selectedVariant ||
-                                selectedVariant.stock_quantity === 0
-                              }
-                              onClick={() =>
-                                selectedVariant &&
-                                handleAddToCart(product, selectedVariant)
-                              }
-                            >
-                              Add to bag
-                            </button>
-                          </div>
-                        </div>
-                      </article>
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        selectedVariantId={selectedVariantId}
+                        onVariantChange={(variantId) =>
+                          setSelectedVariantIds((current) => ({
+                            ...current,
+                            [product.id]: variantId,
+                          }))
+                        }
+                        onAddToCart={handleAddToCart}
+                      />
                     );
                   })}
                 </div>
@@ -462,7 +402,7 @@ export function App() {
               blockMessage={checkoutBlockMessage}
               onQuantityChange={handleQuantityChange}
               onRemoveItem={handleRemoveItem}
-              onProceed={() => setView("checkout")}
+              onProceed={handleProceedToCheckout}
             />
           </>
         )}
