@@ -1,0 +1,2 @@
+-- Local synthetic catalogue fixtures will be introduced in a later phase.
+-- Do not place real customer data or invented live product information here.
