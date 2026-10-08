@@ -4,7 +4,7 @@ A local-first, mobile-first commerce storefront for Manvelle Menswear Ghana. The
 
 ## Project status
 
-The repository foundation, database schema, restrictive RLS policies, and secure guest-order RPC are in place on `development`. Catalogue integration, storefront, checkout UI, analytics, and production setup remain. See [the project handoff](./docs/PROJECT-HANDOFF.md) for milestones and the current continuation point.
+The repository foundation, database schema, restrictive RLS policies, secure guest-order RPC, and typed catalogue reads are in place on `development`. The local seed is explicitly synthetic and is not real Manvelle product, pricing, delivery, or customer data. Storefront, checkout UI, analytics, and production setup remain. See [the project handoff](./docs/PROJECT-HANDOFF.md) for milestones and the current continuation point.
 
 ## Technology
 
@@ -45,14 +45,19 @@ The example environment values are placeholders for local development. Start Sup
 ```text
 src/
   app/                   Application entry and top-level UI
+  features/catalogue/    Typed catalogue and delivery-area reads
   lib/supabase/          Supabase client configuration
 supabase/
   migrations/            Versioned PostgreSQL schema and policy changes
+  seed.sql               Local-only synthetic fixtures
+  seed_assets/           Local-only synthetic product illustrations
 docs/
   PROJECT-HANDOFF.md     Milestones, decisions, and continuation notes
 ```
 
-Database migrations are the source of truth for schema changes. Local seed fixtures will be added separately; use clearly synthetic data for tests and do not invent live Manvelle product information.
+Database migrations are the source of truth for schema changes. `npm run db:reset` loads clearly labeled synthetic products, sizes, stock, product illustrations, and one synthetic delivery area for local development. These fixtures are not real Manvelle products, prices, stock levels, delivery areas, or customer information and must not be used to seed production.
+
+The catalogue service reads only active products, variants, images, and delivery zones; database RLS independently enforces the same visibility boundary. Image paths beginning with `local-fixtures/` resolve to `supabase/seed_assets/` in the Vite development server. Other image paths resolve through the public `product-images` Supabase Storage bucket; production bucket setup and real product uploads are deferred until the approved production-preparation phase. The browser uses only the anon/publishable key.
 
 ## Security and environment boundaries
 

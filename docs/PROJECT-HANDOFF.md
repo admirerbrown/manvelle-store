@@ -91,24 +91,53 @@ An unrelated Supabase stack was already running on the default local ports (`543
 - Confirmed cancellation restores stock once and concurrent requests for the final unit result in exactly one successful order.
 - The temporary database was removed after testing.
 
-### Handoff / proposed next phase
+### Handoff
 
-The next proposed phase is **Catalogue access and local fixtures**: add a typed frontend catalogue service, local synthetic products/variants and image fixtures for development, and connect reads to the active-only Supabase policies. Do not invent live Manvelle products or upload to production. Keep order creation out of the UI until the checkout phase.
-
-**Waiting for user approval before starting this phase.**
+Catalogue work was approved and completed in Phase 5; see the Milestone 5 record below. Order creation remains out of the UI until the checkout phase.
 
 ## Subsequent phase outline
 
 Proceed one phase at a time, recording a milestone and updating this handoff after each approved phase:
 
-1. Project foundation and database schema — complete
-2. Row-level security and database access policies — complete
-3. Secure, authoritative order-creation mechanism — complete
-4. Catalogue access and local fixtures — next
-5. Cart and guest checkout
-6. Order confirmation and WhatsApp handoff
-7. Analytics foundation
-8. Storefront UX, accessibility, SEO, and visual polish
-9. Local end-to-end, backend, and security verification
-10. Production configuration and deployment readiness
-11. Production deployment and smoke testing, only after approval
+1. Specification review and project discovery — complete
+2. Project foundation and database schema — complete
+3. Row-level security and database access policies — complete
+4. Secure, authoritative order-creation mechanism — complete
+5. Catalogue access and local fixtures — complete
+6. Cart and guest checkout
+7. Order confirmation and WhatsApp handoff
+8. Analytics foundation
+9. Storefront UX, accessibility, SEO, and visual polish
+10. Local end-to-end, backend, and security verification
+11. Production configuration and deployment readiness
+12. Production deployment and smoke testing, only after approval
+
+## Milestone 5 — Catalogue access and local fixtures
+
+**Status:** Complete
+
+**Branch:** `development`
+
+### Delivered
+
+- Added Supabase database typings and a typed catalogue service for active products, product sizes and stock, product images, and active delivery zones.
+- Added explicit query ordering and filters in addition to relying on RLS. Catalogue queries return `null` for an unknown or inactive product slug, and surface database errors rather than returning success-shaped empty data.
+- Local image fixture paths resolve to illustrations under `supabase/seed_assets/`; non-fixture paths resolve through the `product-images` Supabase Storage bucket. No product photography is represented as real.
+- Added repeatable local-only seed rows for two active synthetic products, one inactive product, multiple sizes and stock states (including zero stock), three labeled SVG illustrations, and one clearly synthetic delivery zone. The fixture prices and fee are not real business values, and no real customer information is included.
+- Updated the README with the data boundary, local fixture use, and future Storage setup note.
+
+### Verification
+
+- `npm run build` passed, including TypeScript project checks.
+- Editor diagnostics reported no errors in the new database typings or catalogue service.
+- `git diff --check` passed.
+- The Vite development server returned the local synthetic SVG with HTTP 200 and `image/svg+xml`.
+- All three migrations and `supabase/seed.sql` applied successfully to an isolated PostgreSQL 17 instance.
+- Under the `anon` role, only active rows were visible: 2 products, 4 variants, 2 images, and 1 delivery zone. The inactive fixture and its child rows remained hidden.
+- Starting the full Supabase stack was attempted, but its image downloads were too slow to complete. No Manvelle stack containers were left running, and the existing unrelated Supabase stack was not touched.
+
+### Handoff / next phase
+
+The next proposed phase is **Cart and guest checkout**. It may add client-side cart state and checkout form UI, but the database `create_guest_order` RPC remains authoritative for current prices, delivery fees, availability, inventory reservation, and order creation. Continue using the synthetic local fixtures only. No production credentials, real product data, Storage uploads, or deployment are in scope.
+
+**Waiting for user approval before starting the next phase.**

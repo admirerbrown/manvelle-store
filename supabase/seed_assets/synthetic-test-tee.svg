@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 800" role="img" aria-labelledby="title">
+  <title id="title">Synthetic test fixture - tee illustration</title>
+  <rect width="640" height="800" fill="#e7e2d8"/>
+  <path d="m215 150 55-30h100l55 30 115 75-55 100-65-35v300H220V290l-65 35-55-100z" fill="#455044"/>
+  <path d="M270 120c5 40 25 65 50 65s45-25 50-65" fill="none" stroke="#30382f" stroke-width="12"/>
+  <rect x="32" y="665" width="576" height="82" rx="8" fill="#20221f"/>
+  <text x="320" y="715" fill="#fff" font-family="Arial, sans-serif" font-size="25" font-weight="700" text-anchor="middle">SYNTHETIC TEST FIXTURE</text>
+</svg>
