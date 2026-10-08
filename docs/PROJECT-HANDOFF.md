@@ -48,9 +48,29 @@
 
 An unrelated Supabase stack was already running on the default local ports (`54321`–`54327`). It was left untouched. This project is configured to use API/database ports `54421`/`54422` instead. The full application Supabase stack was not started; the schema was validated against an isolated temporary database.
 
+## Milestone 3 — Row-level security and database access policies
+
+**Status:** Complete
+
+**Branch:** `development`
+
+### Delivered
+
+- Added explicit `SELECT` grants and RLS policies for active products, active variants and images belonging to active products, and active delivery zones.
+- Revoked public, anonymous, and authenticated access to orders, order items, and the order-number sequence. No order policies exist; the later controlled order-creation function must be the only public order-creation path.
+- Revoked public-schema `CREATE` access and hardened default privileges for future tables, sequences, and functions.
+- Set the local Supabase API to require explicit table exposure instead of automatically exposing future tables.
+
+### Verification
+
+- Applied both migrations to an isolated Supabase PostgreSQL 17 container.
+- As `anon`, confirmed only active catalogue and delivery-zone rows were visible; inactive rows and rows attached to inactive products were hidden.
+- Confirmed `anon` cannot update catalogue data, read or insert orders/order items, use the order-number sequence, or read a newly created table without explicit grants.
+- Confirmed all six application tables retain RLS. Test fixtures were rolled back, and the temporary container was removed.
+
 ### Handoff / proposed next phase
 
-The next proposed phase is **Row-level security and database access policies**: allow anonymous reads only for active catalogue and delivery-zone data, keep customer/order data private, and disallow public writes until the secure order RPC is implemented. Use this project's non-default ports and do not reset or modify the unrelated running Supabase stack.
+The next proposed phase is **Secure order creation**: implement a narrowly scoped PostgreSQL function that accepts product/variant IDs and quantities plus customer/delivery input, validates availability and delivery zone, derives all authoritative prices and totals, creates snapshot rows, and returns only the newly created order confirmation data. Keep direct table writes and order reads denied. Before implementing inventory changes, ask the owner to choose whether stock is reduced at order submission or staff confirmation, or whether orders only check stock without reservation.
 
 **Waiting for user approval before starting this phase.**
 
@@ -59,8 +79,8 @@ The next proposed phase is **Row-level security and database access policies**: 
 Proceed one phase at a time, recording a milestone and updating this handoff after each approved phase:
 
 1. Project foundation and database schema — complete
-2. Row-level security and database access policies — next
-3. Secure, authoritative order-creation mechanism
+2. Row-level security and database access policies — complete
+3. Secure, authoritative order-creation mechanism — next
 4. Catalogue access and local fixtures
 5. Cart and guest checkout
 6. Order confirmation and WhatsApp handoff

@@ -57,7 +57,8 @@ Database migrations are the source of truth for schema changes. Local seed fixtu
 ## Security and environment boundaries
 
 - The browser is untrusted. Prices, totals, stock, order privacy, and order state must be enforced in PostgreSQL or a controlled database function.
-- RLS is enabled on application tables. Do not add public access policies until they are deliberately designed and tested.
+- Anonymous and authenticated users can read only active catalogue items and delivery zones. Orders and order items have no public grants or policies; the controlled order-creation mechanism must be implemented before checkout is enabled.
+- Default privileges and local Supabase API settings require explicit grants before newly created public-schema objects are exposed.
 - Only the Supabase anon/publishable key may be used in the browser. Never use the service-role key in Vite configuration.
 - Keep local and production Supabase projects separate. Production credentials are not used for ordinary local development.
 - Do not deploy until local database, security, and end-to-end checks pass. After approval, tested work is promoted from `development` to `main`, the deployment branch.
