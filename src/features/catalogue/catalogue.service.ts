@@ -5,30 +5,35 @@ type ProductRow = Database["public"]["Tables"]["products"]["Row"];
 type ProductVariantRow =
   Database["public"]["Tables"]["product_variants"]["Row"];
 type ProductImageRow = Database["public"]["Tables"]["product_images"]["Row"];
-type DeliveryZoneRow = Database["public"]["Tables"]["delivery_zones"]["Row"];
 
 export type CatalogueVariant = Pick<
   ProductVariantRow,
   "id" | "size" | "sku" | "stock_quantity"
 >;
 
+export type ProductAvailability = ProductRow["availability"];
+
 export type CatalogueImage = Pick<ProductImageRow, "id" | "alt_text"> & {
   url: string;
   sortOrder: number;
+  colorName: string;
 };
 
 export type CatalogueProduct = Pick<
   ProductRow,
-  "id" | "name" | "slug" | "description" | "price" | "category" | "featured"
+  | "id"
+  | "name"
+  | "slug"
+  | "description"
+  | "key_features"
+  | "price"
+  | "category"
+  | "availability"
+  | "featured"
 > & {
   variants: CatalogueVariant[];
   images: CatalogueImage[];
 };
-
-export type CatalogueDeliveryZone = Pick<
-  DeliveryZoneRow,
-  "id" | "code" | "name" | "delivery_fee"
->;
 
 const productImageBucket = "product-images";
 const localFixturePrefix = "local-fixtures/";
@@ -45,7 +50,9 @@ async function loadProducts({
   const client = getSupabaseClient();
   let productsQuery = client
     .from("products")
-    .select("id,name,slug,description,price,category,featured")
+    .select(
+      "id,name,slug,description,key_features,price,category,availability,featured",
+    )
     .eq("active", true)
     .order("featured", { ascending: false })
     .order("name", { ascending: true });
@@ -116,6 +123,7 @@ async function loadProducts({
       alt_text: image.alt_text,
       sortOrder: image.sort_order,
       url: getProductImageUrl(image.storage_path),
+      colorName: getImageName(image.storage_path),
     });
     imagesByProduct.set(image.product_id, images);
   }
@@ -125,6 +133,16 @@ async function loadProducts({
     variants: variantsByProduct.get(product.id) ?? [],
     images: imagesByProduct.get(product.id) ?? [],
   }));
+}
+
+export function isVariantInStock(
+  product: Pick<CatalogueProduct, "availability">,
+  variant: Pick<CatalogueVariant, "stock_quantity">,
+): boolean {
+  return (
+    product.availability !== "out-of-stock" &&
+    (variant.stock_quantity === null || variant.stock_quantity > 0)
+  );
 }
 
 export function getCatalogueProducts(
@@ -138,22 +156,6 @@ export async function getCatalogueProductBySlug(
 ): Promise<CatalogueProduct | null> {
   const products = await loadProducts({ slug });
   return products[0] ?? null;
-}
-
-export async function getCatalogueDeliveryZones(): Promise<
-  CatalogueDeliveryZone[]
-> {
-  const { data, error } = await getSupabaseClient()
-    .from("delivery_zones")
-    .select("id,code,name,delivery_fee")
-    .eq("active", true)
-    .order("name", { ascending: true });
-
-  if (error) {
-    throw new Error("Could not load delivery areas.", { cause: error });
-  }
-
-  return data;
 }
 
 function getProductImageUrl(storagePath: string): string {
@@ -174,4 +176,10 @@ function getProductImageUrl(storagePath: string): string {
   return getSupabaseClient()
     .storage.from(productImageBucket)
     .getPublicUrl(storagePath).data.publicUrl;
+}
+
+function getImageName(storagePath: string): string {
+  const fileName = storagePath.split("/").at(-1) ?? storagePath;
+  const name = fileName.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim();
+  return name.replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
 }

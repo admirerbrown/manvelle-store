@@ -1,15 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  getCatalogueDeliveryZones,
   getCatalogueProducts,
-  type CatalogueDeliveryZone,
+  isVariantInStock,
+  type CatalogueImage,
   type CatalogueProduct,
   type CatalogueVariant,
 } from "../features/catalogue/catalogue.service";
 import { ProductCard } from "../features/catalogue/ProductCard";
+import { ProductPage } from "../features/catalogue/ProductPage";
 import { trackStorefrontEvent } from "../features/analytics/analytics.service";
 import { CartPanel, type CartItemView } from "../features/cart/CartPanel";
-import type { CartLine } from "../features/cart/cart.types";
+import {
+  getCartLineKey,
+  type CartLine,
+} from "../features/cart/cart.types";
 import { CheckoutForm } from "../features/checkout/CheckoutForm";
 import type { GuestOrderConfirmation } from "../features/checkout/checkout.service";
 import { formatGhs } from "../lib/format-currency";
@@ -17,7 +21,11 @@ import { formatGhs } from "../lib/format-currency";
 type View = "shop" | "checkout" | "confirmation";
 const minimumProductVariantCount = 4;
 
-function getWhatsAppHandoffUrl(orderNumber: string): string | null {
+function getWhatsAppHandoffUrl(
+  confirmation: GuestOrderConfirmation,
+  items: CartLine[],
+  productsById: ReadonlyMap<string, CatalogueProduct>,
+): string | null {
   const businessNumber = import.meta.env.VITE_WHATSAPP_NUMBER?.replace(
     /\D/g,
     "",
@@ -26,17 +34,59 @@ function getWhatsAppHandoffUrl(orderNumber: string): string | null {
     return null;
   }
 
-  const message = `Hello Manvelle, I just placed order ${orderNumber}. Please confirm my order.`;
+  const selectedProducts = new Map<
+    string,
+    { name: string; color: string; sizes: string[]; imageUrl: string | null }
+  >();
+  for (const item of items) {
+    const product = productsById.get(item.productId);
+    const variant = product?.variants.find(
+      (candidate) => candidate.id === item.variantId,
+    );
+    const image = product?.images.find(
+      (candidate) => candidate.id === item.imageId,
+    );
+    const key = `${item.productId}:${item.imageId ?? ""}`;
+    const selectedProduct = selectedProducts.get(key) ?? {
+      name: product?.name ?? "Product",
+      color: image?.colorName ?? "Color unavailable",
+      sizes: [],
+      imageUrl: image?.url ?? null,
+    };
+    selectedProduct.sizes.push(
+      `${variant?.size ?? "Size unavailable"} x ${item.quantity}`,
+    );
+    selectedProducts.set(key, selectedProduct);
+  }
+  const itemDetails = Array.from(selectedProducts.values()).map((item) => {
+    const details = [
+      item.name,
+      `Color: ${item.color}`,
+      `Sizes: ${item.sizes.join(", ")}`,
+      item.imageUrl ? `Image: ${item.imageUrl}` : "Image unavailable",
+    ];
+    return `- ${details.join(" | ")}`;
+  });
+  const message = [
+    `Hello Manvelle, I just placed order ${confirmation.orderNumber}.`,
+    ...itemDetails,
+    `Subtotal: ${formatGhs(confirmation.subtotal)}`,
+    `Delivery area: ${confirmation.deliveryArea}`,
+    confirmation.isAccra
+      ? "Payment: Cash on Delivery. Please confirm the delivery fee and total."
+      : "Payment: I agree to arrange payment before delivery. Please contact me on WhatsApp with the payment details and delivery cost.",
+  ].join("\n");
   return `https://wa.me/${businessNumber}?text=${encodeURIComponent(message)}`;
 }
 
 export function App() {
   const [products, setProducts] = useState<CatalogueProduct[]>([]);
-  const [deliveryZones, setDeliveryZones] = useState<CatalogueDeliveryZone[]>(
-    [],
-  );
   const [cart, setCart] = useState<CartLine[]>([]);
+  const [confirmationCart, setConfirmationCart] = useState<CartLine[]>([]);
   const [view, setView] = useState<View>("shop");
+  const [selectedProductSlug, setSelectedProductSlug] = useState<string | null>(
+    null,
+  );
   const [confirmation, setConfirmation] =
     useState<GuestOrderConfirmation | null>(null);
   const [selectedVariantIds, setSelectedVariantIds] = useState<
@@ -50,7 +100,7 @@ export function App() {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
-  }, [view]);
+  }, [view, selectedProductSlug]);
 
   useEffect(() => {
     if (lastTrackedPage.current === view) {
@@ -65,11 +115,10 @@ export function App() {
     setIsLoading(true);
     setCatalogueError(null);
 
-    Promise.all([getCatalogueProducts(), getCatalogueDeliveryZones()])
-      .then(([loadedProducts, loadedDeliveryZones]) => {
+    getCatalogueProducts()
+      .then((loadedProducts) => {
         if (isCurrent) {
           setProducts(loadedProducts);
-          setDeliveryZones(loadedDeliveryZones);
         }
       })
       .catch((error: unknown) => {
@@ -103,6 +152,9 @@ export function App() {
       ),
     [products],
   );
+  const selectedProduct = products.find(
+    (product) => product.slug === selectedProductSlug,
+  );
 
   const cartItems: CartItemView[] = useMemo(
     () =>
@@ -112,6 +164,9 @@ export function App() {
           product?.variants.find(
             (productVariant) => productVariant.id === item.variantId,
           ) ?? null;
+        const quantityForVariant = cart
+          .filter((cartLine) => cartLine.variantId === item.variantId)
+          .reduce((quantity, cartLine) => quantity + cartLine.quantity, 0);
         let availabilityIssue: string | null = null;
 
         if (!product) {
@@ -123,13 +178,16 @@ export function App() {
         } else if (!variant) {
           availabilityIssue =
             "This size is no longer available. Refresh the catalogue or remove it.";
-        } else if (variant.stock_quantity === 0) {
+        } else if (!isVariantInStock(product, variant)) {
           availabilityIssue =
             "This size is out of stock. Remove it or choose another size.";
-        } else if (item.quantity > variant.stock_quantity) {
+        } else if (
+          variant.stock_quantity !== null &&
+          quantityForVariant > variant.stock_quantity
+        ) {
           availabilityIssue = `Only ${variant.stock_quantity} ${
             variant.stock_quantity === 1 ? "unit is" : "units are"
-          } currently available. Update the quantity.`;
+          } currently available across this size. Update the quantity.`;
         }
 
         return { item, product, variant, availabilityIssue };
@@ -157,25 +215,43 @@ export function App() {
             ? "A single order can include at most 50 sizes."
             : cartItems.find((item) => item.availabilityIssue)
                 ?.availabilityIssue ??
-              (deliveryZones.length === 0
-                ? "No delivery areas are available right now."
-                : null);
+              null;
   const canProceedToCheckout =
     cartItems.length > 0 && checkoutBlockMessage === null;
 
   const cartQuantity = cart.reduce((total, item) => total + item.quantity, 0);
   const whatsappHandoffUrl = confirmation
-    ? getWhatsAppHandoffUrl(confirmation.orderNumber)
+    ? getWhatsAppHandoffUrl(confirmation, confirmationCart, productsById)
     : null;
 
   function handleAddToCart(
     product: CatalogueProduct,
     variant: CatalogueVariant,
+    image: CatalogueImage | null,
   ) {
-    const existingItem = cart.find((item) => item.variantId === variant.id);
-    const requestedQuantity = (existingItem?.quantity ?? 0) + 1;
+    const line = {
+      productId: product.id,
+      variantId: variant.id,
+      imageId: image?.id ?? null,
+    };
+    const lineKey = getCartLineKey(line);
+    const existingItem = cart.find(
+      (item) => getCartLineKey(item) === lineKey,
+    );
+    const requestedQuantity =
+      cart
+        .filter((item) => item.variantId === variant.id)
+        .reduce((quantity, item) => quantity + item.quantity, 0) + 1;
 
-    if (requestedQuantity > variant.stock_quantity) {
+    if (
+      !isVariantInStock(product, variant) ||
+      (variant.stock_quantity !== null &&
+        requestedQuantity > variant.stock_quantity)
+    ) {
+      if (!isVariantInStock(product, variant)) {
+        setCartMessage(`${product.name}, size ${variant.size}, is out of stock.`);
+        return;
+      }
       setCartMessage(
         `Only ${variant.stock_quantity} ${
           variant.stock_quantity === 1 ? "unit is" : "units are"
@@ -190,21 +266,19 @@ export function App() {
 
     setCart((currentCart) => {
       const currentItem = currentCart.find(
-        (item) => item.variantId === variant.id,
+        (item) => getCartLineKey(item) === lineKey,
       );
       if (currentItem) {
         return currentCart.map((item) =>
-          item.variantId === variant.id
-            ? { ...item, quantity: requestedQuantity }
+          getCartLineKey(item) === lineKey
+            ? { ...item, quantity: currentItem.quantity + 1 }
             : item,
         );
       }
-
       return [
         ...currentCart,
         {
-          productId: product.id,
-          variantId: variant.id,
+          ...line,
           quantity: 1,
         },
       ];
@@ -218,33 +292,40 @@ export function App() {
     setCartMessage(`${product.name}, size ${variant.size}, added to your bag.`);
   }
 
-  function handleQuantityChange(variantId: string, quantity: number) {
+  function handleQuantityChange(lineKey: string, quantity: number) {
     setCart((currentCart) =>
       currentCart.map((item) =>
-        item.variantId === variantId ? { ...item, quantity } : item,
+        getCartLineKey(item) === lineKey ? { ...item, quantity } : item,
       ),
     );
   }
 
-  function handleRemoveItem(variantId: string) {
+  function handleRemoveItem(lineKey: string) {
     setCart((currentCart) =>
-      currentCart.filter((item) => item.variantId !== variantId),
+      currentCart.filter((item) => getCartLineKey(item) !== lineKey),
     );
   }
 
-  function handleOrderCreated(order: GuestOrderConfirmation) {
+  function handleOrderCreated(
+    order: GuestOrderConfirmation,
+    submittedItems: CartLine[],
+  ) {
     trackStorefrontEvent({
       name: "order_confirmed",
       orderNumber: order.orderNumber,
     });
     setConfirmation(order);
+    setConfirmationCart(submittedItems);
     setCart([]);
     setCartMessage(null);
+    setSelectedProductSlug(null);
     setView("confirmation");
   }
 
   function continueShopping() {
     setConfirmation(null);
+    setConfirmationCart([]);
+    setSelectedProductSlug(null);
     setView("shop");
   }
 
@@ -253,7 +334,37 @@ export function App() {
       return;
     }
     trackStorefrontEvent({ name: "checkout_started" });
+    setSelectedProductSlug(null);
     setView("checkout");
+  }
+
+  function handleOpenProduct(product: CatalogueProduct) {
+    setSelectedProductSlug(product.slug);
+    const firstAvailableVariant = product.variants.find((variant) =>
+      isVariantInStock(product, variant),
+    );
+    setSelectedVariantIds((current) => ({
+      ...current,
+      [product.id]: current[product.id] ?? firstAvailableVariant?.id ?? "",
+    }));
+    trackStorefrontEvent({ name: "product_view", productId: product.id });
+  }
+
+  function handleHeaderBagClick() {
+    if (selectedProductSlug !== null) {
+      setSelectedProductSlug(null);
+      window.setTimeout(() => {
+        document.getElementById("bag")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 0);
+      return;
+    }
+    document.getElementById("bag")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
   }
 
   return (
@@ -272,10 +383,7 @@ export function App() {
               continueShopping();
               return;
             }
-            document.getElementById("bag")?.scrollIntoView({
-              behavior: "smooth",
-              block: "start",
-            });
+            handleHeaderBagClick();
           }}
           aria-label={`Your bag, ${cartQuantity} ${
             cartQuantity === 1 ? "item" : "items"
@@ -286,14 +394,37 @@ export function App() {
       </header>
 
       <main>
-        {view === "shop" && (
+        {view === "shop" && selectedProduct && (
+          <ProductPage
+            product={selectedProduct}
+            selectedVariantId={
+              selectedVariantIds[selectedProduct.id] ??
+              selectedProduct.variants.find((variant) =>
+                isVariantInStock(selectedProduct, variant),
+              )?.id ??
+              ""
+            }
+            onVariantChange={(variantId) =>
+              setSelectedVariantIds((current) => ({
+                ...current,
+                [selectedProduct.id]: variantId,
+              }))
+            }
+            canProceedToCheckout={canProceedToCheckout}
+            onAddToCart={handleAddToCart}
+            onProceedToCheckout={handleProceedToCheckout}
+            onBack={() => setSelectedProductSlug(null)}
+          />
+        )}
+
+        {view === "shop" && !selectedProduct && (
           <>
             <section className="hero">
               <p className="eyebrow">Everyday, considered</p>
               <h1>Made for the way you move.</h1>
               <p>
-                Browse the collection, choose your size, and order with Cash
-                on Delivery.
+                Browse the collection, choose your size, and place your order.
+                We’ll confirm delivery details on WhatsApp.
               </p>
             </section>
 
@@ -363,25 +494,11 @@ export function App() {
               {!catalogueError && productsWithEnoughSizes.length > 0 && (
                 <div className="product-grid">
                   {productsWithEnoughSizes.map((product) => {
-                    const selectedVariantId =
-                      selectedVariantIds[product.id] ??
-                      product.variants.find(
-                        (variant) => variant.stock_quantity > 0,
-                      )?.id ??
-                      "";
-
                     return (
                       <ProductCard
                         key={product.id}
                         product={product}
-                        selectedVariantId={selectedVariantId}
-                        onVariantChange={(variantId) =>
-                          setSelectedVariantIds((current) => ({
-                            ...current,
-                            [product.id]: variantId,
-                          }))
-                        }
-                        onAddToCart={handleAddToCart}
+                        onOpenProduct={handleOpenProduct}
                       />
                     );
                   })}
@@ -411,9 +528,11 @@ export function App() {
           <CheckoutForm
             cart={cart}
             products={productsById}
-            deliveryZones={deliveryZones}
             subtotal={cartSubtotal}
-            onBack={() => setView("shop")}
+            onBack={() => {
+              setSelectedProductSlug(null);
+              setView("shop");
+            }}
             onOrderCreated={handleOrderCreated}
           />
         )}
@@ -423,8 +542,8 @@ export function App() {
             <p className="eyebrow">Order received</p>
             <h1 id="confirmation-title">Thank you for your order.</h1>
             <p>
-              Your order has been recorded. Continue in WhatsApp to confirm
-              your order and coordinate delivery.
+              We’ll reach out to you on WhatsApp to confirm your delivery
+              details and let you know the cost of delivery.
             </p>
             <ul className="confirmation__items" aria-label="Items in your order">
               {confirmation.items.map((item, index) => (
@@ -450,7 +569,7 @@ export function App() {
               </div>
               <div>
                 <dt>Delivery</dt>
-                <dd>{formatGhs(confirmation.deliveryFee)}</dd>
+                <dd>To be confirmed on WhatsApp</dd>
               </div>
               <div>
                 <dt>Order number</dt>
@@ -458,15 +577,19 @@ export function App() {
               </div>
               <div>
                 <dt>Order total</dt>
-                <dd>{formatGhs(confirmation.total)}</dd>
+                <dd>To be confirmed on WhatsApp</dd>
               </div>
               <div>
                 <dt>Delivery area</dt>
-                <dd>{confirmation.deliveryZone}</dd>
+                <dd>{confirmation.deliveryArea}</dd>
               </div>
               <div>
                 <dt>Payment</dt>
-                <dd>Cash on Delivery</dd>
+                <dd>
+                  {confirmation.isAccra
+                    ? "Cash on Delivery"
+                    : "Payment before delivery, arranged on WhatsApp"}
+                </dd>
               </div>
             </dl>
             {whatsappHandoffUrl ? (
@@ -497,7 +620,7 @@ export function App() {
 
       <footer className="store-footer">
         <span>Manvelle Menswear Ghana</span>
-        <span>Guest checkout - Cash on Delivery</span>
+        <span>Guest checkout - delivery confirmed on WhatsApp</span>
       </footer>
     </div>
   );

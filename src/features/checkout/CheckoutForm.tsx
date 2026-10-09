@@ -1,9 +1,7 @@
 import { useRef, useState, type FormEvent } from "react";
-import type {
-  CatalogueDeliveryZone,
-  CatalogueProduct,
-} from "../catalogue/catalogue.service";
+import type { CatalogueProduct } from "../catalogue/catalogue.service";
 import type { CartLine } from "../cart/cart.types";
+import { getCartLineKey } from "../cart/cart.types";
 import {
   createGuestOrder,
   GuestOrderSubmissionError,
@@ -15,10 +13,12 @@ import { formatGhs } from "../../lib/format-currency";
 type CheckoutFormProps = {
   cart: CartLine[];
   products: ReadonlyMap<string, CatalogueProduct>;
-  deliveryZones: CatalogueDeliveryZone[];
   subtotal: number;
   onBack: () => void;
-  onOrderCreated: (order: GuestOrderConfirmation) => void;
+  onOrderCreated: (
+    order: GuestOrderConfirmation,
+    submittedItems: CartLine[],
+  ) => void;
 };
 
 type OrderAttempt = {
@@ -29,26 +29,21 @@ type OrderAttempt = {
 export function CheckoutForm({
   cart,
   products,
-  deliveryZones,
   subtotal,
   onBack,
   onOrderCreated,
 }: CheckoutFormProps) {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
-  const [deliveryZoneId, setDeliveryZoneId] = useState("");
+  const [deliveryArea, setDeliveryArea] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [isAccra, setIsAccra] = useState<boolean | null>(null);
+  const [acceptsAdvancePayment, setAcceptsAdvancePayment] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [retrySameSubmissionOnly, setRetrySameSubmissionOnly] = useState(false);
   const submissionInFlight = useRef(false);
   const orderAttempt = useRef<OrderAttempt | null>(null);
-
-  const selectedZone = deliveryZones.find(
-    (zone) => zone.id === deliveryZoneId,
-  );
-  const estimatedTotal =
-    selectedZone === undefined ? null : subtotal + selectedZone.delivery_fee;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -58,14 +53,15 @@ export function CheckoutForm({
 
     if (!orderAttempt.current) {
       const trimmedName = customerName.trim();
+      const trimmedArea = deliveryArea.trim();
       const trimmedAddress = deliveryAddress.trim();
       const normalizedPhoneDigits = customerPhone.replace(/\D/g, "");
       const validGhanaianPhone =
         /^0[235]\d{8}$/.test(normalizedPhoneDigits) ||
         /^233[235]\d{8}$/.test(normalizedPhoneDigits);
 
-      if (cart.length === 0 || cart.length > 50 || !deliveryZoneId) {
-        setErrorMessage("Add available sizes and choose a delivery area.");
+      if (cart.length === 0 || cart.length > 50) {
+        setErrorMessage("Add available sizes before placing your order.");
         return;
       }
       if (trimmedName.length < 2 || trimmedName.length > 120) {
@@ -76,13 +72,21 @@ export function CheckoutForm({
         setErrorMessage("Enter a valid Ghanaian phone number.");
         return;
       }
+      if (trimmedArea.length < 2 || trimmedArea.length > 120) {
+        setErrorMessage("Enter an Accra area using 2 to 120 characters.");
+        return;
+      }
       if (trimmedAddress.length < 3 || trimmedAddress.length > 500) {
         setErrorMessage("Enter a delivery address using 3 to 500 characters.");
         return;
       }
-      if (!deliveryZones.some((zone) => zone.id === deliveryZoneId)) {
+      if (isAccra === null) {
+        setErrorMessage("Please tell us whether you are located in Accra.");
+        return;
+      }
+      if (!isAccra && !acceptsAdvancePayment) {
         setErrorMessage(
-          "Choose an available delivery area before completing your order.",
+          "Please confirm that you agree to arrange payment on WhatsApp before delivery.",
         );
         return;
       }
@@ -98,8 +102,10 @@ export function CheckoutForm({
         input: {
           customerName: trimmedName,
           customerPhone: customerPhone.trim(),
-          deliveryZoneId,
+          deliveryArea: trimmedArea,
           deliveryAddress: trimmedAddress,
+          isAccra,
+          acceptsAdvancePayment: !isAccra && acceptsAdvancePayment,
           items: cart.map((item) => ({ ...item })),
         },
       };
@@ -114,8 +120,9 @@ export function CheckoutForm({
         orderAttempt.current.idempotencyKey,
         orderAttempt.current.input,
       );
+      const submittedItems = orderAttempt.current.input.items;
       orderAttempt.current = null;
-      onOrderCreated(order);
+      onOrderCreated(order, submittedItems);
     } catch (error: unknown) {
       if (
         error instanceof GuestOrderSubmissionError &&
@@ -155,7 +162,13 @@ export function CheckoutForm({
           <p className="eyebrow">Guest checkout</p>
           <h1 id="checkout-heading">Delivery details</h1>
         </div>
-        <span className="checkout__payment">Cash on Delivery</span>
+        <span className="checkout__payment">
+          {isAccra === null
+            ? "Choose your delivery location"
+            : isAccra
+              ? "Cash on Delivery"
+              : "Payment before delivery via WhatsApp"}
+        </span>
       </div>
 
       <div className="checkout-layout">
@@ -203,27 +216,81 @@ export function CheckoutForm({
           </div>
 
           <div className="form-field">
-            <label htmlFor="delivery-zone">Delivery area</label>
-            <select
-              id="delivery-zone"
-              name="deliveryZone"
-              required
-              value={deliveryZoneId}
-              disabled={fieldsDisabled || deliveryZones.length === 0}
-              onChange={(event) => setDeliveryZoneId(event.target.value)}
-            >
-              <option value="">Choose a delivery area</option>
-              {deliveryZones.map((zone) => (
-                <option key={zone.id} value={zone.id}>
-                  {zone.name} - {formatGhs(zone.delivery_fee)}
-                </option>
-              ))}
-            </select>
-            {deliveryZones.length === 0 && (
+            <fieldset className="checkout-location">
+              <legend>Are you located in Accra?</legend>
+              <div className="checkout-location__options">
+                <label>
+                  <input
+                    type="radio"
+                    name="isAccra"
+                    value="yes"
+                    required
+                    checked={isAccra === true}
+                    disabled={fieldsDisabled}
+                    onChange={() => {
+                      setIsAccra(true);
+                      setAcceptsAdvancePayment(false);
+                    }}
+                  />
+                  Yes
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name="isAccra"
+                    value="no"
+                    required
+                    checked={isAccra === false}
+                    disabled={fieldsDisabled}
+                    onChange={() => setIsAccra(false)}
+                  />
+                  No
+                </label>
+              </div>
               <span className="field-help">
-                No delivery areas are available. Please try again later.
+                Cash on Delivery is available within Accra. Outside Accra,
+                payment must be arranged on WhatsApp before delivery.
               </span>
-            )}
+            </fieldset>
+          </div>
+
+          {isAccra === false && (
+            <label className="checkout-payment-acknowledgement">
+              <input
+                type="checkbox"
+                required
+                checked={acceptsAdvancePayment}
+                disabled={fieldsDisabled}
+                onChange={(event) =>
+                  setAcceptsAdvancePayment(event.target.checked)
+                }
+              />
+              <span>
+                I agree to arrange payment on WhatsApp before my order is
+                delivered.
+              </span>
+            </label>
+          )}
+
+          <div className="form-field">
+            <label htmlFor="delivery-area">Area / neighbourhood / city</label>
+            <input
+              id="delivery-area"
+              name="deliveryArea"
+              type="text"
+              autoComplete="address-level2"
+              minLength={2}
+              maxLength={120}
+              required
+              placeholder="e.g. Osu, Madina, Tema"
+              value={deliveryArea}
+              disabled={fieldsDisabled}
+              onChange={(event) => setDeliveryArea(event.target.value)}
+              aria-describedby="delivery-area-help"
+            />
+            <span className="field-help" id="delivery-area-help">
+              We’ll confirm the delivery fee with you on WhatsApp.
+            </span>
           </div>
 
           <div className="form-field">
@@ -261,10 +328,7 @@ export function CheckoutForm({
           <button
             className="button button--dark button--wide"
             type="submit"
-            disabled={
-              isSubmitting ||
-              (!retrySameSubmissionOnly && deliveryZones.length === 0)
-            }
+            disabled={isSubmitting}
           >
             {isSubmitting
               ? "Submitting order..."
@@ -273,8 +337,9 @@ export function CheckoutForm({
                 : "Complete order"}
           </button>
           <p className="checkout-form__privacy">
-            Your details are used to place and deliver this order. Card details
-            are never requested.
+            Your details are used to place and deliver this order. Any
+            pre-delivery payment for addresses outside Accra will be arranged
+            with you on WhatsApp.
           </p>
         </form>
 
@@ -288,11 +353,18 @@ export function CheckoutForm({
               );
 
               return (
-                <li key={item.variantId}>
+                <li key={getCartLineKey(item)}>
                   <span>
                     {product?.name ?? "Product"} -{" "}
                     {variant?.size ?? "Size"} x{" "}
                     {item.quantity}
+                    {product &&
+                      item.imageId &&
+                      ` - ${
+                        product.images.find(
+                          (image) => image.id === item.imageId,
+                        )?.colorName ?? "Color"
+                      }`}
                   </span>
                   <strong>
                     {product
@@ -310,24 +382,17 @@ export function CheckoutForm({
             </div>
             <div>
               <dt>Delivery</dt>
-              <dd>
-                {selectedZone
-                  ? formatGhs(selectedZone.delivery_fee)
-                  : "Choose an area"}
-              </dd>
+              <dd>To be confirmed on WhatsApp</dd>
             </div>
             <div className="checkout-summary__grand-total">
-              <dt>Estimated total</dt>
-              <dd>
-                {estimatedTotal === null
-                  ? "-"
-                  : formatGhs(estimatedTotal)}
-              </dd>
+              <dt>Subtotal</dt>
+              <dd>{formatGhs(subtotal)}</dd>
             </div>
           </dl>
           <p>
-            Final prices, stock, delivery fee, and total are recalculated by the
-            database when you place your order.
+            Your delivery fee and final total will be confirmed with you on
+            WhatsApp. Final prices and stock are verified when your order is
+            placed.
           </p>
         </aside>
       </div>

@@ -18,8 +18,10 @@ type ProductRow = {
   name: string;
   slug: string;
   description: string;
+  key_features: string;
   price: number;
   category: string | null;
+  availability: "in-stock" | "out-of-stock";
   active: boolean;
   featured: boolean;
   created_at: string;
@@ -32,7 +34,7 @@ type ProductVariantRow = {
   size: string;
   sort_order: number;
   sku: string | null;
-  stock_quantity: number;
+  stock_quantity: number | null;
   active: boolean;
   created_at: string;
   updated_at: string;
@@ -107,8 +109,10 @@ export type Database = {
           p_idempotency_key: string;
           p_customer_name: string;
           p_customer_phone: string;
-          p_delivery_zone_id: string;
+          p_delivery_area: string;
           p_delivery_address: string;
+          p_is_accra: boolean;
+          p_accepts_advance_payment: boolean;
           p_items: Json;
         };
         Returns: Json;

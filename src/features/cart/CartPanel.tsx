@@ -2,8 +2,10 @@ import type {
   CatalogueProduct,
   CatalogueVariant,
 } from "../catalogue/catalogue.service";
+import { isVariantInStock } from "../catalogue/catalogue.service";
 import { formatGhs } from "../../lib/format-currency";
 import type { CartLine } from "./cart.types";
+import { getCartLineKey } from "./cart.types";
 
 export type CartItemView = {
   item: CartLine;
@@ -17,8 +19,8 @@ type CartPanelProps = {
   subtotal: number | null;
   canProceed: boolean;
   blockMessage: string | null;
-  onQuantityChange: (variantId: string, quantity: number) => void;
-  onRemoveItem: (variantId: string) => void;
+  onQuantityChange: (lineKey: string, quantity: number) => void;
+  onRemoveItem: (lineKey: string) => void;
   onProceed: () => void;
 };
 
@@ -51,11 +53,18 @@ export function CartPanel({
         <>
           <ul className="cart-list">
             {items.map(({ item, product, variant, availabilityIssue }) => (
-              <li className="cart-item" key={item.variantId}>
+              <li className="cart-item" key={getCartLineKey(item)}>
                 <div className="cart-item__details">
                   <h3>{product?.name ?? "Unavailable product"}</h3>
                   <p>
                     Size: {variant?.size ?? "Unavailable"}
+                    {product &&
+                      item.imageId &&
+                      ` - Color: ${
+                        product.images.find(
+                          (image) => image.id === item.imageId,
+                        )?.colorName ?? "Unavailable"
+                      }`}
                     {product && ` - ${formatGhs(product.price)} each`}
                   </p>
                   {availabilityIssue && (
@@ -65,21 +74,25 @@ export function CartPanel({
                 <div className="cart-item__controls">
                   <label
                     className="visually-hidden"
-                    htmlFor={`quantity-${item.variantId}`}
+                    htmlFor={`quantity-${getCartLineKey(item)}`}
                   >
                     Quantity for {product?.name ?? "unavailable product"}
                   </label>
                   <input
-                    id={`quantity-${item.variantId}`}
+                    id={`quantity-${getCartLineKey(item)}`}
                     aria-label={`Quantity for ${
                       product?.name ?? "unavailable product"
                     }`}
                     type="number"
                     min={1}
-                    max={variant?.stock_quantity}
+                    max={variant?.stock_quantity ?? undefined}
                     step={1}
                     value={item.quantity}
-                    disabled={!variant || variant.stock_quantity < 1}
+                    disabled={
+                      !variant ||
+                      !product ||
+                      !isVariantInStock(product, variant)
+                    }
                     onChange={(event) => {
                       const quantity = Number.parseInt(
                         event.currentTarget.value,
@@ -89,9 +102,10 @@ export function CartPanel({
                         Number.isInteger(quantity) &&
                         quantity >= 1 &&
                         variant &&
-                        quantity <= variant.stock_quantity
+                        (variant.stock_quantity === null ||
+                          quantity <= variant.stock_quantity)
                       ) {
-                        onQuantityChange(item.variantId, quantity);
+                        onQuantityChange(getCartLineKey(item), quantity);
                       }
                     }}
                   />
@@ -103,7 +117,7 @@ export function CartPanel({
                   <button
                     className="text-button"
                     type="button"
-                    onClick={() => onRemoveItem(item.variantId)}
+                    onClick={() => onRemoveItem(getCartLineKey(item))}
                     aria-label={`Remove ${
                       product?.name ?? "unavailable product"
                     } from your bag`}
@@ -123,8 +137,8 @@ export function CartPanel({
               </strong>
             </div>
             <p>
-              Delivery cost is shown at checkout. Final prices, stock, and
-              totals are confirmed by the database when your order is placed.
+              The delivery fee and final total will be confirmed with you on
+              WhatsApp.
             </p>
           </div>
 

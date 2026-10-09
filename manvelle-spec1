@@ -1,0 +1,1337 @@
+# Manvelle Menswear Storefront
+
+Build a production-ready MVP storefront for **Manvelle Menswear Ghana**.
+
+The purpose of this project is not simply to create a professional-looking website. The storefront is intended to replace WhatsApp as the primary product discovery and qualification layer for Meta/Facebook/Instagram traffic.
+
+The desired funnel is:
+
+**Meta Ad → Manvelle Storefront → Product → Size/Quantity → Guest Checkout → Order Created → Order Confirmation → WhatsApp Handoff → Delivery → Payment → Order Completed**
+
+The system must reduce low-intent WhatsApp conversations, make ordering self-service, and create structured customer/conversion data that can later be used to improve Meta advertising.
+
+---
+
+# 1. Core Technical Architecture
+
+Use:
+
+* **Frontend:** React + Vite
+* **Frontend hosting:** Byet.host free hosting
+* **Backend/database:** Supabase
+* **Database:** Supabase PostgreSQL
+* **Images:** Supabase Storage
+* **Authentication:** No customer authentication for MVP
+* **Payments:** Cash on Delivery
+* **Customer communication:** WhatsApp
+* **No separate backend server**
+* **No n8n required for the initial storefront**
+* **No AI agent required inside the storefront**
+
+The frontend must be able to operate as a static React/Vite build.
+
+Do NOT introduce unnecessary infrastructure.
+
+Supabase should be the source of truth for:
+
+* Products
+* Product variants/sizes
+* Inventory
+* Orders
+* Customers/order contact information
+* Order status
+* Delivery status
+* Conversion events
+
+---
+
+# 2. Business Model
+
+Manvelle sells men's clothing in Ghana.
+
+The storefront must support:
+
+* Product browsing
+* Product details
+* Product images
+* Prices in Ghana Cedis
+* Sizes
+* Quantity
+* Availability
+* Guest checkout
+* Cash on delivery
+* Delivery information
+* Order confirmation
+* WhatsApp communication after an order is placed
+
+The customer must NOT be required to:
+
+* Create an account
+* Create a password
+* Provide an email address
+* Log in
+* Pay online
+
+The MVP should make ordering as frictionless as possible.
+
+---
+
+# 3. Important Business Objective
+
+The current Manvelle funnel is:
+
+**Facebook/Instagram Ad → WhatsApp → Customer asks questions → Manual qualification → Possible order**
+
+This generates many low-intent conversations.
+
+The new funnel should be:
+
+**Facebook/Instagram Ad → Storefront → Product information → Customer chooses product/size → Checkout → Order**
+
+WhatsApp should no longer be the storefront.
+
+WhatsApp should become primarily a:
+
+* Support channel
+* Order communication channel
+* Delivery coordination channel
+* Post-order communication channel
+
+A visitor who only wants to look at pictures, prices or sizes should be able to do that without contacting Manvelle.
+
+---
+
+# 4. Customer Journey
+
+Implement the following journey.
+
+## Step 1: Ad Landing
+
+A customer arrives from Facebook/Instagram.
+
+They should immediately understand:
+
+* What Manvelle sells
+* Current products
+* Prices
+* How to shop
+* Delivery availability
+* Cash-on-delivery availability
+
+Do not force the customer to contact WhatsApp.
+
+Primary CTA:
+
+**Shop Now**
+
+Secondary CTA:
+
+**Need Help? WhatsApp Us**
+
+---
+
+# 5. Storefront
+
+Create a clean, premium men's fashion storefront.
+
+The design should feel:
+
+* Premium
+* Modern
+* Masculine
+* Minimal
+* Trustworthy
+* Ghana-focused
+
+Avoid excessive animations.
+
+Avoid generic "AI-generated luxury" aesthetics.
+
+The product photography and information should be the focus.
+
+The storefront should feel like a real commerce business, not a software demo.
+
+---
+
+# 6. Required Pages
+
+Implement at minimum:
+
+## Home
+
+Include:
+
+* Manvelle branding
+* Hero section
+* Featured products
+* Categories if appropriate
+* Clear prices
+* Shop CTA
+* Delivery information
+* Cash-on-delivery information
+* Trust information
+* WhatsApp support CTA
+
+---
+
+## Shop / Products
+
+Display products in a clean catalogue.
+
+Each product card should show:
+
+* Product image
+* Product name
+* Price
+* Availability
+* CTA
+
+Do not require WhatsApp to obtain this information.
+
+---
+
+## Product Details
+
+Each product page should contain:
+
+* Product name
+* Product images
+* Price
+* Description
+* Available sizes
+* Size selection
+* Quantity
+* Availability
+* Delivery information
+* Cash-on-delivery information
+* Buy Now / Add to Cart CTA
+* WhatsApp support CTA
+
+The customer should be able to make a purchase decision without talking to someone.
+
+---
+
+# 7. Cart
+
+Implement a simple cart.
+
+Show:
+
+* Product
+* Selected size
+* Quantity
+* Unit price
+* Subtotal
+* Delivery information/cost if applicable
+* Total
+
+Allow:
+
+* Quantity changes
+* Removing products
+* Returning to shopping
+* Proceeding to checkout
+
+Do not build unnecessary ecommerce functionality.
+
+---
+
+# 8. Guest Checkout
+
+Guest checkout is mandatory.
+
+Do NOT require an account.
+
+Collect only information needed to fulfil the order.
+
+Required:
+
+* Full name
+* Phone number
+* Delivery location/address
+* Product
+* Size
+* Quantity
+
+If delivery options require additional information, add only what is necessary.
+
+Avoid unnecessary fields.
+
+---
+
+# 9. Checkout Validation
+
+Validate all customer input.
+
+Phone:
+
+* Must be a valid Ghanaian phone number format.
+* Normalize it before storing if practical.
+
+Name:
+
+* Required
+* Reasonable length limits
+
+Delivery location:
+
+* Required
+
+Product:
+
+* Must still exist
+* Must still be available
+
+Size:
+
+* Must be a valid size for that product
+
+Quantity:
+
+* Must be positive
+* Must not exceed available stock if inventory is enforced
+
+Prices:
+
+**NEVER trust prices sent by the browser.**
+
+The browser may submit product IDs and quantities, but the backend/database must determine the actual product price.
+
+Do not allow a malicious customer to modify the frontend request and purchase a GHS 300 product for GHS 1.
+
+---
+
+# 10. Order Creation
+
+Order creation must be handled safely.
+
+The frontend should submit something equivalent to:
+
+* Product/variant ID
+* Quantity
+* Customer information
+* Delivery information
+
+The database/backend logic must then:
+
+1. Verify the product exists.
+2. Verify the selected size/variant exists.
+3. Verify the item is available.
+4. Read the authoritative price from the database.
+5. Calculate the order total.
+6. Create the order.
+7. Create order items.
+8. Store the price actually used at the time of purchase.
+9. Generate a unique order number.
+
+Do not calculate the authoritative total exclusively in React.
+
+---
+
+# 11. Order Number
+
+Generate a human-readable order number.
+
+Example:
+
+`MNV-1048`
+
+The exact implementation can differ, but order numbers must be:
+
+* Unique
+* Easy to communicate over WhatsApp
+* Safe to expose to customers
+
+Never expose raw database IDs as the customer's primary order reference.
+
+---
+
+# 12. Database Design
+
+Design the PostgreSQL schema properly before building the UI.
+
+At minimum consider these tables:
+
+## products
+
+Fields should include approximately:
+
+* id
+* name
+* slug
+* description
+* price
+* category
+* active
+* created_at
+* updated_at
+
+---
+
+## product_variants
+
+Use this for sizes/variants.
+
+Fields approximately:
+
+* id
+* product_id
+* size
+* stock_quantity
+* active
+* created_at
+* updated_at
+
+A product may have multiple sizes.
+
+Do not store all sizes as an unstructured text field if inventory needs to be tracked.
+
+---
+
+## product_images
+
+Fields approximately:
+
+* id
+* product_id
+* image_url/path
+* sort_order
+* alt_text
+* active
+
+Use Supabase Storage for the actual images.
+
+---
+
+## orders
+
+Fields approximately:
+
+* id
+* order_number
+* customer_name
+* customer_phone
+* delivery_address
+* delivery_area
+* delivery_fee
+* subtotal
+* total
+* payment_method
+* payment_status
+* order_status
+* delivery_status
+* created_at
+* updated_at
+
+MVP payment method:
+
+`cash_on_delivery`
+
+Initial payment status:
+
+`pending`
+
+---
+
+## order_items
+
+Fields approximately:
+
+* id
+* order_id
+* product_id
+* variant_id
+* product_name_snapshot
+* size_snapshot
+* unit_price
+* quantity
+* subtotal
+
+IMPORTANT:
+
+Store snapshots of product name, size and price.
+
+Do not rely exclusively on the current product record after the order has been created.
+
+If the product price changes from GHS 300 to GHS 350 tomorrow, yesterday's order must still show GHS 300.
+
+---
+
+## customers
+
+A separate customer table is optional for the first version.
+
+If implemented, use the phone number as the practical customer identifier.
+
+Do not require customer accounts.
+
+A returning customer should still be able to place another guest order.
+
+Do not make authentication part of the MVP.
+
+---
+
+# 13. Order Status
+
+Design an explicit order state machine.
+
+For example:
+
+`pending`
+
+→ `confirmed`
+
+→ `out_for_delivery`
+
+→ `delivered`
+
+→ `completed`
+
+Possible exception states:
+
+`cancelled`
+
+`failed_delivery`
+
+Do not use arbitrary free-text status values.
+
+Payment status should be separate from order status.
+
+For example:
+
+Order:
+
+`delivered`
+
+Payment:
+
+`paid`
+
+This matters because Manvelle uses Cash on Delivery.
+
+---
+
+# 14. Cash on Delivery
+
+The website must clearly state:
+
+**Cash on Delivery available**
+
+The customer is placing an order, not making an online payment.
+
+Do not build an online payment gateway into the MVP.
+
+However, the system must record:
+
+* Payment method
+* Payment status
+* Order status
+* Delivery status
+
+This allows Manvelle to distinguish:
+
+**Orders ≠ Delivered Orders ≠ Paid Customers**
+
+That distinction is important for advertising analysis.
+
+---
+
+# 15. Inventory
+
+Inventory must be considered carefully.
+
+The system should prevent obviously invalid orders.
+
+If stock tracking is implemented:
+
+* Inventory should be associated with product variants/sizes.
+* A customer should not be able to order a size with zero stock.
+* Inventory should be updated safely when an order is confirmed according to the chosen business rule.
+
+Avoid race conditions where two customers simultaneously purchase the last available item.
+
+If true stock reservation is too complex for the MVP, explicitly document the limitation rather than pretending the system provides guaranteed inventory consistency.
+
+---
+
+# 16. Database Security
+
+This is extremely important.
+
+Configure Supabase Row Level Security properly.
+
+Do NOT expose unrestricted database access from the browser.
+
+Public users should only be able to perform the operations they actually need.
+
+For example:
+
+Public users may need to:
+
+* Read active products
+* Read active product variants
+* Read active product images
+* Create a valid order
+
+Public users should NOT be able to:
+
+* Read every order
+* Read other customers' phone numbers
+* Read customer addresses
+* Modify products
+* Modify prices
+* Modify inventory
+* Modify order status
+* Delete orders
+
+Never expose a Supabase service-role key in the frontend.
+
+Only the Supabase anon/public key may be used client-side.
+
+---
+
+# 17. Order Security
+
+Think carefully about anonymous order creation.
+
+An anonymous visitor needs to create an order, but this must not become an unrestricted database insertion endpoint.
+
+Use database policies/functions where appropriate.
+
+Prefer a controlled order-creation function/RPC or another secure mechanism that:
+
+* Validates product/variant
+* Retrieves authoritative prices
+* Calculates totals
+* Creates order/order items
+* Generates the order number
+* Prevents arbitrary fields from being injected
+* Does not expose unrelated customer/order data
+
+The customer should only receive information about the order they just created.
+
+---
+
+# 18. Prevent Price Manipulation
+
+This is a mandatory security requirement.
+
+Never do:
+
+```text
+Frontend says:
+price = 300
+quantity = 2
+total = 600
+
+Backend accepts 600
+```
+
+Instead:
+
+```text
+Frontend:
+product_id
+variant_id
+quantity
+
+Database:
+retrieve current authoritative price
+validate product/variant
+calculate subtotal
+calculate delivery
+calculate total
+create order
+```
+
+The database/backend is authoritative.
+
+---
+
+# 19. Confirmation Page
+
+After successful checkout, show a clear confirmation page.
+
+Display:
+
+* Manvelle branding
+* "Order received"
+* Order number
+* Product
+* Size
+* Quantity
+* Total
+* Payment method
+* Delivery information
+* What happens next
+
+Example:
+
+**Order MNV-1048**
+
+Your order has been received.
+
+Payment: Cash on Delivery
+
+We will contact you on WhatsApp to confirm delivery details.
+
+---
+
+# 20. WhatsApp Handoff
+
+After successful order creation, provide a WhatsApp action.
+
+The WhatsApp message should be prefilled with the actual order information.
+
+For example:
+
+"Hello Manvelle, I just placed order MNV-1048. Please confirm my order."
+
+The system may include additional order information where appropriate.
+
+Important:
+
+WhatsApp should be reached AFTER an order exists.
+
+Do not make WhatsApp the mechanism for creating the order.
+
+The order must already exist in Supabase.
+
+---
+
+# 21. WhatsApp Architecture
+
+For MVP, prefer a simple click-to-WhatsApp handoff if that is sufficient.
+
+Do not introduce Evolution API, n8n, WhatsApp Cloud API or another messaging backend merely to send a basic confirmation unless there is a clear business requirement.
+
+The architecture should allow automated WhatsApp messaging to be added later.
+
+For example:
+
+MVP:
+
+Order created → confirmation page → customer clicks WhatsApp
+
+Later:
+
+Order created → WhatsApp API automatically sends order confirmation → customer replies → staff handles delivery
+
+Do not over-engineer version one.
+
+---
+
+# 22. Tracking and Analytics
+
+This is one of the main reasons this storefront is being built.
+
+Track the customer funnel.
+
+At minimum define events for:
+
+* `page_view`
+* `product_view`
+* `product_variant_selected`
+* `add_to_cart`
+* `checkout_started`
+* `order_created`
+* `order_confirmed`
+* `order_delivered`
+* `order_paid`
+
+Do not treat every event as equally valuable.
+
+The business funnel is:
+
+**Traffic → Product Interest → Checkout Intent → Order → Delivery → Payment**
+
+The final business signal is a delivered/paid customer.
+
+---
+
+# 23. Meta/Facebook Tracking
+
+Structure the application so Meta tracking can be added cleanly.
+
+Do not hard-code the application around WhatsApp clicks as the primary conversion.
+
+The system should eventually support:
+
+Meta ad
+
+↓
+
+Storefront
+
+↓
+
+Product view
+
+↓
+
+Checkout
+
+↓
+
+Order
+
+↓
+
+Delivered
+
+↓
+
+Paid
+
+The exact Meta Pixel / Conversions API implementation can be added separately.
+
+Do not claim that an order was a delivered/paid conversion simply because checkout was submitted.
+
+Keep the internal database as the source of truth.
+
+---
+
+# 24. Event Data
+
+If an analytics/events table is created, consider storing:
+
+* event_name
+* order_id where applicable
+* product_id where applicable
+* session identifier
+* timestamp
+* metadata
+
+Do not store unnecessary personal information in analytics events.
+
+Do not expose private customer data publicly.
+
+---
+
+# 25. Product Data
+
+Initially seed the system with real Manvelle products.
+
+Do not invent fake products.
+
+Product data must support:
+
+* Real product names
+* Real prices
+* Real sizes
+* Real availability
+* Real product images
+
+The application should make it easy to add/edit products later.
+
+If there is no admin dashboard in the MVP, document the safe method for managing product data through Supabase.
+
+---
+
+# 26. Admin Requirements
+
+Do NOT build a large admin dashboard unless required.
+
+For MVP, Manvelle mainly needs:
+
+* Products
+* Variants
+* Inventory
+* Orders
+* Order status
+* Payment status
+* Delivery status
+
+If an admin interface is included, protect it properly.
+
+Never create a fake frontend-only admin password.
+
+If authentication is needed, use Supabase Auth.
+
+---
+
+# 27. Delivery
+
+The UI must clearly communicate delivery information.
+
+Do not hide important delivery costs until the customer has already committed.
+
+If delivery cost varies by location, design the checkout so the cost can be determined consistently.
+
+The order must store the delivery fee used for that order.
+
+Again, do not rely on frontend calculations for authoritative totals.
+
+---
+
+# 28. Trust
+
+The storefront must compensate for the reassurance currently provided by WhatsApp.
+
+Clearly communicate:
+
+* Manvelle identity
+* Product photos
+* Product prices
+* Sizes
+* Availability
+* Delivery information
+* Cash-on-delivery option
+* How ordering works
+* Contact/WhatsApp support
+* Any legitimate trust signals available
+
+Do not fabricate:
+
+* Reviews
+* Customer counts
+* Testimonials
+* Guarantees
+* Certifications
+* Business claims
+
+---
+
+# 29. UX Principle
+
+The site should answer the customer's normal questions before they need to contact Manvelle.
+
+A customer should be able to answer:
+
+**What is it?**
+
+**How much is it?**
+
+**Do you have my size?**
+
+**How do I order?**
+
+**Where do you deliver?**
+
+**How much is delivery?**
+
+**When will I receive it?**
+
+**Do I pay before or after delivery?**
+
+without needing to start a WhatsApp conversation.
+
+---
+
+# 30. WhatsApp Position
+
+WhatsApp should remain visible and easy to access.
+
+But its role changes.
+
+Bad:
+
+**"Message us to see products and prices."**
+
+Good:
+
+**"Browse the collection and order directly. Need help? WhatsApp us."**
+
+This distinction is fundamental to the project.
+
+---
+
+# 31. Mobile First
+
+Most traffic will likely come from mobile devices.
+
+Prioritize:
+
+* Mobile layout
+* Fast loading
+* Large product imagery
+* Easy size selection
+* Simple checkout
+* Large touch targets
+* Minimal typing
+* Fast navigation
+
+Do not optimize primarily for desktop.
+
+---
+
+# 32. Performance
+
+Keep the storefront lightweight.
+
+Avoid:
+
+* Huge JavaScript dependencies
+* Excessive animation
+* Autoplay video
+* Unnecessary libraries
+* Large unoptimized images
+
+Optimize product images.
+
+Use lazy loading where appropriate.
+
+The site must work well on ordinary mobile internet connections.
+
+---
+
+# 33. Error Handling
+
+The application must handle:
+
+* Product unavailable
+* Size unavailable
+* Network failure
+* Supabase failure
+* Duplicate order submission
+* Invalid input
+* Empty cart
+* Product removed after being added to cart
+
+Never silently fail.
+
+Show the customer a useful message.
+
+Prevent double-clicking "Complete Order" from creating duplicate orders.
+
+Use an appropriate idempotency/deduplication strategy where practical.
+
+---
+
+# 34. Order Confirmation Integrity
+
+After clicking "Complete Order":
+
+Do not show "Order successful" merely because the frontend thinks the request succeeded.
+
+Only show successful confirmation after the database confirms the order was actually created.
+
+The confirmation page must correspond to the real database order.
+
+---
+
+# 35. Accessibility
+
+Implement basic accessibility:
+
+* Semantic HTML
+* Proper labels
+* Keyboard accessibility
+* Alt text for product images
+* Sufficient text contrast
+* Clear form validation
+* Accessible buttons
+
+Do not sacrifice usability for visual effects.
+
+---
+
+# 36. SEO
+
+Implement basic SEO for the storefront:
+
+* Meaningful page titles
+* Meta descriptions
+* Product-specific titles where possible
+* Clean URLs/slugs
+* Open Graph metadata
+* Proper headings
+* Product image alt text
+
+The application should not rely entirely on JavaScript-generated generic metadata.
+
+---
+
+# 37. URL Structure
+
+Prefer clean URLs such as:
+
+`/`
+
+`/shop`
+
+`/product/product-name`
+
+`/checkout`
+
+`/order/success`
+
+Avoid exposing database UUIDs in public URLs where unnecessary.
+
+---
+
+# 38. Architecture Rules
+
+Keep the application modular.
+
+Separate:
+
+* UI components
+* Product/catalogue logic
+* Cart logic
+* Checkout logic
+* Supabase data access
+* Order creation
+* Analytics/event tracking
+* Validation
+
+Do not put all application logic inside React components.
+
+Create clear service/API modules.
+
+---
+
+# 39. Environment Variables
+
+Use environment variables for:
+
+* Supabase URL
+* Supabase anon/public key
+* Other public configuration
+
+Never commit:
+
+* Supabase service-role key
+* Private API keys
+* WhatsApp API secrets
+* Database passwords
+* Admin credentials
+
+Never put secrets into Vite client-side environment variables.
+
+Remember that Vite environment variables prefixed for client exposure are public.
+
+---
+
+# 40. Testing
+
+Before considering the project complete, test:
+
+### Catalogue
+
+* Products load
+* Inactive products are hidden
+* Correct prices display
+* Correct sizes display
+* Images load
+
+### Cart
+
+* Add product
+* Change quantity
+* Remove product
+* Correct totals
+* Correct variant/size
+* Empty cart
+
+### Checkout
+
+* Required fields
+* Invalid phone
+* Missing delivery information
+* Invalid product
+* Invalid variant
+* Out-of-stock variant
+
+### Orders
+
+* Correct order created
+* Correct order number
+* Correct product
+* Correct size
+* Correct quantity
+* Correct price
+* Correct subtotal
+* Correct delivery fee
+* Correct total
+* Correct payment method
+* Correct initial status
+
+### Security
+
+Attempt to:
+
+* Modify price from browser
+* Modify another order
+* Read another customer's order
+* Modify product data anonymously
+* Modify inventory anonymously
+* Inject arbitrary order fields
+
+These attempts must fail.
+
+### Reliability
+
+Test:
+
+* Double clicking Complete Order
+* Refreshing confirmation page
+* Network failure during checkout
+* Supabase unavailable
+* Product becoming unavailable before order creation
+
+---
+
+# 41. Supabase Policies
+
+Before declaring the backend complete, explicitly inspect and verify:
+
+* RLS enabled on every exposed table
+* Public SELECT policies are limited to active catalogue data
+* Anonymous users cannot read orders
+* Anonymous users cannot read customer information
+* Anonymous users cannot update orders
+* Anonymous users cannot modify product prices
+* Anonymous users cannot modify inventory
+* Order creation cannot arbitrarily set authoritative financial values
+* Service-role credentials are never exposed to the frontend
+
+Do not proceed merely because the application works in the browser.
+
+The database security model must also be correct.
+
+---
+
+# 42. Do Not Overbuild
+
+Do NOT add the following unless there is a concrete reason:
+
+* Customer accounts
+* Password reset
+* Wishlist
+* Reviews
+* Loyalty points
+* Coupons
+* Online payment
+* AI chatbot
+* Recommendation engine
+* Complex search
+* Multi-vendor functionality
+* Advanced CRM
+* Complex admin dashboard
+* Separate backend server
+* Microservices
+* n8n workflows
+* Complex notification infrastructure
+
+The MVP goal is:
+
+**Browse → Decide → Order → Confirm → WhatsApp → Deliver → Record outcome**
+
+---
+
+# 43. Definition of Done
+
+The project is not finished when the UI looks good.
+
+It is finished when a real customer can:
+
+1. Click a Manvelle ad.
+2. Land on the storefront.
+3. Browse products.
+4. View product details.
+5. Select a size.
+6. Select quantity.
+7. Add to cart.
+8. Checkout without creating an account.
+9. Submit their name, phone and delivery information.
+10. Create a real Supabase order.
+11. Receive a unique Manvelle order number.
+12. See an accurate order summary.
+13. Move to WhatsApp for communication.
+14. Have the order fulfilled using the recorded information.
+15. Have the order eventually marked delivered/paid.
+
+And the business owner must be able to determine:
+
+**How many people visited?**
+
+**How many viewed products?**
+
+**How many started checkout?**
+
+**How many placed orders?**
+
+**How many orders were delivered?**
+
+**How many customers actually paid?**
+
+**Which products generated those customers?**
+
+The system must create the foundation for answering these questions.
+
+---
+
+# 44. Build Order
+
+Do not start by making the homepage beautiful.
+
+Build in this order:
+
+### Phase 1
+
+Database schema and relationships.
+
+### Phase 2
+
+RLS/security policies.
+
+### Phase 3
+
+Secure order creation mechanism.
+
+### Phase 4
+
+Product/catalogue data access.
+
+### Phase 5
+
+Cart.
+
+### Phase 6
+
+Checkout.
+
+### Phase 7
+
+Order confirmation.
+
+### Phase 8
+
+WhatsApp handoff.
+
+### Phase 9
+
+Analytics/event tracking.
+
+### Phase 10
+
+Storefront visual polish.
+
+### Phase 11
+
+Testing and security review.
+
+### Phase 12
+
+Production build and deployment.
+
+At each stage, verify the underlying functionality before moving on.
+
+---
+
+# 45. Important Instruction to the AI Builder
+
+Do not assume that a feature is secure simply because the frontend prevents the user from doing something.
+
+The browser is untrusted.
+
+Any important business rule must be enforced at the database/backend level.
+
+In particular:
+
+**Prices, totals, product availability, order ownership/privacy, inventory and order state transitions must not depend solely on React.**
+
+Before finishing, perform a backend/security review separately from the UI review.
+
+The final result should be a small but real commerce system for Manvelle, not a static mockup.
