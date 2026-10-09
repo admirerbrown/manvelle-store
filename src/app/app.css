@@ -97,6 +97,10 @@ a {
   font-size: 0.78rem;
 }
 
+.bag-page__back {
+  margin-top: 1.5rem;
+}
+
 .hero {
   display: grid;
   min-height: 20rem;

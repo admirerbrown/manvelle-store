@@ -72,16 +72,26 @@ export function CheckoutForm({
         setErrorMessage("Enter a valid Ghanaian phone number.");
         return;
       }
-      if (trimmedArea.length < 2 || trimmedArea.length > 120) {
-        setErrorMessage("Enter an Accra area using 2 to 120 characters.");
-        return;
-      }
-      if (trimmedAddress.length < 3 || trimmedAddress.length > 500) {
-        setErrorMessage("Enter a delivery address using 3 to 500 characters.");
-        return;
-      }
       if (isAccra === null) {
         setErrorMessage("Please tell us whether you are located in Accra.");
+        return;
+      }
+      if (
+        trimmedArea.length < (isAccra ? 2 : 3) ||
+        trimmedArea.length > 120
+      ) {
+        setErrorMessage(
+          isAccra
+            ? "Enter your Accra neighbourhood using 2 to 120 characters."
+            : "Enter your city using 3 to 120 characters.",
+        );
+        return;
+      }
+      if (
+        isAccra &&
+        (trimmedAddress.length < 3 || trimmedAddress.length > 500)
+      ) {
+        setErrorMessage("Enter a delivery address using 3 to 500 characters.");
         return;
       }
       if (!isAccra && !acceptsAdvancePayment) {
@@ -103,7 +113,7 @@ export function CheckoutForm({
           customerName: trimmedName,
           customerPhone: customerPhone.trim(),
           deliveryArea: trimmedArea,
-          deliveryAddress: trimmedAddress,
+          deliveryAddress: isAccra ? trimmedAddress : trimmedArea,
           isAccra,
           acceptsAdvancePayment: !isAccra && acceptsAdvancePayment,
           items: cart.map((item) => ({ ...item })),
@@ -272,46 +282,58 @@ export function CheckoutForm({
             </label>
           )}
 
-          <div className="form-field">
-            <label htmlFor="delivery-area">Area / neighbourhood / city</label>
-            <input
-              id="delivery-area"
-              name="deliveryArea"
-              type="text"
-              autoComplete="address-level2"
-              minLength={2}
-              maxLength={120}
-              required
-              placeholder="e.g. Osu, Madina, Tema"
-              value={deliveryArea}
-              disabled={fieldsDisabled}
-              onChange={(event) => setDeliveryArea(event.target.value)}
-              aria-describedby="delivery-area-help"
-            />
-            <span className="field-help" id="delivery-area-help">
-              We’ll confirm the delivery fee with you on WhatsApp.
-            </span>
-          </div>
+          {isAccra !== null && (
+            <>
+              <div className="form-field">
+                <label htmlFor="delivery-area">
+                  {isAccra ? "Area / neighbourhood in Accra" : "City"}
+                </label>
+                <input
+                  id="delivery-area"
+                  name="deliveryArea"
+                  type="text"
+                  autoComplete="address-level2"
+                  minLength={isAccra ? 2 : 3}
+                  maxLength={120}
+                  required
+                  placeholder={
+                    isAccra
+                      ? "e.g. Osu, Madina, East Legon"
+                      : "e.g. Tamale, Kumasi"
+                  }
+                  value={deliveryArea}
+                  disabled={fieldsDisabled}
+                  onChange={(event) => setDeliveryArea(event.target.value)}
+                  aria-describedby="delivery-area-help"
+                />
+                <span className="field-help" id="delivery-area-help">
+                  We’ll confirm the delivery fee with you on WhatsApp.
+                </span>
+              </div>
 
-          <div className="form-field">
-            <label htmlFor="delivery-address">Delivery address</label>
-            <textarea
-              id="delivery-address"
-              name="address"
-              autoComplete="street-address"
-              minLength={3}
-              maxLength={500}
-              rows={3}
-              required
-              value={deliveryAddress}
-              disabled={fieldsDisabled}
-              onChange={(event) => setDeliveryAddress(event.target.value)}
-              aria-describedby="address-help"
-            />
-            <span className="field-help" id="address-help">
-              Add the street, landmark, or directions needed to find you.
-            </span>
-          </div>
+              {isAccra && (
+                <div className="form-field">
+                  <label htmlFor="delivery-address">Delivery address</label>
+                  <textarea
+                    id="delivery-address"
+                    name="address"
+                    autoComplete="street-address"
+                    minLength={3}
+                    maxLength={500}
+                    rows={3}
+                    required
+                    value={deliveryAddress}
+                    disabled={fieldsDisabled}
+                    onChange={(event) => setDeliveryAddress(event.target.value)}
+                    aria-describedby="address-help"
+                  />
+                  <span className="field-help" id="address-help">
+                    Add the street, landmark, or directions needed to find you.
+                  </span>
+                </div>
+              )}
+            </>
+          )}
 
           {errorMessage && (
             <div className="error-panel" role="alert">

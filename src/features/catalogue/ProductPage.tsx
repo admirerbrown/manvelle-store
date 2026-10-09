@@ -12,6 +12,7 @@ type ProductPageProps = {
   selectedVariantId: string;
   onVariantChange: (variantId: string) => void;
   canProceedToCheckout: boolean;
+  cartMessage: string | null;
   onAddToCart: (
     product: CatalogueProduct,
     variant: CatalogueVariant,
@@ -26,6 +27,7 @@ export function ProductPage({
   selectedVariantId,
   onVariantChange,
   canProceedToCheckout,
+  cartMessage,
   onAddToCart,
   onProceedToCheckout,
   onBack,
@@ -160,6 +162,11 @@ export function ProductPage({
           >
             Add to bag
           </button>
+          {cartMessage && (
+            <p className="cart-feedback" role="status">
+              {cartMessage}
+            </p>
+          )}
           {canProceedToCheckout && (
             <button
               className="button button--secondary button--wide"

@@ -18,66 +18,8 @@ import { CheckoutForm } from "../features/checkout/CheckoutForm";
 import type { GuestOrderConfirmation } from "../features/checkout/checkout.service";
 import { formatGhs } from "../lib/format-currency";
 
-type View = "shop" | "checkout" | "confirmation";
+type View = "shop" | "bag" | "checkout" | "confirmation";
 const minimumProductVariantCount = 4;
-
-function getWhatsAppHandoffUrl(
-  confirmation: GuestOrderConfirmation,
-  items: CartLine[],
-  productsById: ReadonlyMap<string, CatalogueProduct>,
-): string | null {
-  const businessNumber = import.meta.env.VITE_WHATSAPP_NUMBER?.replace(
-    /\D/g,
-    "",
-  );
-  if (!businessNumber || !/^\d{8,15}$/.test(businessNumber)) {
-    return null;
-  }
-
-  const selectedProducts = new Map<
-    string,
-    { name: string; color: string; sizes: string[]; imageUrl: string | null }
-  >();
-  for (const item of items) {
-    const product = productsById.get(item.productId);
-    const variant = product?.variants.find(
-      (candidate) => candidate.id === item.variantId,
-    );
-    const image = product?.images.find(
-      (candidate) => candidate.id === item.imageId,
-    );
-    const key = `${item.productId}:${item.imageId ?? ""}`;
-    const selectedProduct = selectedProducts.get(key) ?? {
-      name: product?.name ?? "Product",
-      color: image?.colorName ?? "Color unavailable",
-      sizes: [],
-      imageUrl: image?.url ?? null,
-    };
-    selectedProduct.sizes.push(
-      `${variant?.size ?? "Size unavailable"} x ${item.quantity}`,
-    );
-    selectedProducts.set(key, selectedProduct);
-  }
-  const itemDetails = Array.from(selectedProducts.values()).map((item) => {
-    const details = [
-      item.name,
-      `Color: ${item.color}`,
-      `Sizes: ${item.sizes.join(", ")}`,
-      item.imageUrl ? `Image: ${item.imageUrl}` : "Image unavailable",
-    ];
-    return `- ${details.join(" | ")}`;
-  });
-  const message = [
-    `Hello Manvelle, I just placed order ${confirmation.orderNumber}.`,
-    ...itemDetails,
-    `Subtotal: ${formatGhs(confirmation.subtotal)}`,
-    `Delivery area: ${confirmation.deliveryArea}`,
-    confirmation.isAccra
-      ? "Payment: Cash on Delivery. Please confirm the delivery fee and total."
-      : "Payment: I agree to arrange payment before delivery. Please contact me on WhatsApp with the payment details and delivery cost.",
-  ].join("\n");
-  return `https://wa.me/${businessNumber}?text=${encodeURIComponent(message)}`;
-}
 
 export function App() {
   const [products, setProducts] = useState<CatalogueProduct[]>([]);
@@ -99,15 +41,14 @@ export function App() {
   const lastTrackedPage = useRef<View | null>(null);
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "auto" });
-  }, [view, selectedProductSlug]);
-
-  useEffect(() => {
     if (lastTrackedPage.current === view) {
       return;
     }
     lastTrackedPage.current = view;
-    trackStorefrontEvent({ name: "page_view", page: view });
+    trackStorefrontEvent({
+      name: "page_view",
+      page: view === "bag" ? "shop" : view,
+    });
   }, [view]);
 
   useEffect(() => {
@@ -140,6 +81,18 @@ export function App() {
       isCurrent = false;
     };
   }, [refreshVersion]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [view, selectedProductSlug]);
+
+  useEffect(() => {
+    if (!cartMessage) {
+      return;
+    }
+    const timeoutId = window.setTimeout(() => setCartMessage(null), 2500);
+    return () => window.clearTimeout(timeoutId);
+  }, [cartMessage]);
 
   const productsById = useMemo(
     () => new Map(products.map((product) => [product.id, product])),
@@ -220,9 +173,6 @@ export function App() {
     cartItems.length > 0 && checkoutBlockMessage === null;
 
   const cartQuantity = cart.reduce((total, item) => total + item.quantity, 0);
-  const whatsappHandoffUrl = confirmation
-    ? getWhatsAppHandoffUrl(confirmation, confirmationCart, productsById)
-    : null;
 
   function handleAddToCart(
     product: CatalogueProduct,
@@ -329,6 +279,14 @@ export function App() {
     setView("shop");
   }
 
+  useEffect(() => {
+    if (view !== "confirmation" || !confirmation) {
+      return;
+    }
+    const timeoutId = window.setTimeout(continueShopping, 5000);
+    return () => window.clearTimeout(timeoutId);
+  }, [view, confirmation]);
+
   function handleProceedToCheckout() {
     if (!canProceedToCheckout) {
       return;
@@ -351,20 +309,8 @@ export function App() {
   }
 
   function handleHeaderBagClick() {
-    if (selectedProductSlug !== null) {
-      setSelectedProductSlug(null);
-      window.setTimeout(() => {
-        document.getElementById("bag")?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      }, 0);
-      return;
-    }
-    document.getElementById("bag")?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
+    setSelectedProductSlug(null);
+    setView("bag");
   }
 
   return (
@@ -378,13 +324,7 @@ export function App() {
           className="bag-link"
           type="button"
           disabled={view === "checkout"}
-          onClick={() => {
-            if (view === "confirmation") {
-              continueShopping();
-              return;
-            }
-            handleHeaderBagClick();
-          }}
+          onClick={handleHeaderBagClick}
           aria-label={`Your bag, ${cartQuantity} ${
             cartQuantity === 1 ? "item" : "items"
           }`}
@@ -414,6 +354,7 @@ export function App() {
             onAddToCart={handleAddToCart}
             onProceedToCheckout={handleProceedToCheckout}
             onBack={() => setSelectedProductSlug(null)}
+            cartMessage={cartMessage}
           />
         )}
 
@@ -506,12 +447,18 @@ export function App() {
               )}
             </section>
 
-            {cartMessage && (
-              <p className="cart-feedback" role="status">
-                {cartMessage}
-              </p>
-            )}
+          </>
+        )}
 
+        {view === "bag" && (
+          <>
+            <button
+              className="text-button bag-page__back"
+              type="button"
+              onClick={() => setView("shop")}
+            >
+              &lt;- Continue shopping
+            </button>
             <CartPanel
               items={cartItems}
               subtotal={cartSubtotal}
@@ -547,19 +494,55 @@ export function App() {
             </p>
             <ul className="confirmation__items" aria-label="Items in your order">
               {confirmation.items.map((item, index) => (
-                <li
-                  className="confirmation__item"
-                  key={`${item.productName}-${item.size}-${index}`}
-                >
-                  <span className="confirmation__item-description">
-                    <strong>{item.productName}</strong>
-                    <span>
-                      Size {item.size} x {item.quantity} -{" "}
-                      {formatGhs(item.unitPrice)} each
-                    </span>
-                  </span>
-                  <strong>{formatGhs(item.subtotal)}</strong>
-                </li>
+                (() => {
+                  const selectedLines = confirmationCart
+                    .filter((line) => {
+                      const product = productsById.get(line.productId);
+                      const variant = product?.variants.find(
+                        (candidate) => candidate.id === line.variantId,
+                      );
+                      return (
+                        product?.name === item.productName &&
+                        variant?.size === item.size
+                      );
+                    })
+                    .map((line) => {
+                      const product = productsById.get(line.productId);
+                      return {
+                        quantity: line.quantity,
+                        color:
+                          product?.images.find(
+                            (image) => image.id === line.imageId,
+                          )?.colorName ?? "Unavailable",
+                      };
+                    });
+                  return (
+                    <li
+                      className="confirmation__item"
+                      key={`${item.productName}-${item.size}-${index}`}
+                    >
+                      <span className="confirmation__item-description">
+                        <strong>{item.productName}</strong>
+                        <span>
+                          Size {item.size} x {item.quantity} -{" "}
+                          {formatGhs(item.unitPrice)} each
+                        </span>
+                        {selectedLines.length > 0 && (
+                          <span>
+                            {selectedLines.length > 1 ? "Colors: " : "Color: "}
+                            {selectedLines
+                              .map(
+                                ({ color, quantity }) =>
+                                  `${color} x ${quantity}`,
+                              )
+                              .join(", ")}
+                          </span>
+                        )}
+                      </span>
+                      <strong>{formatGhs(item.subtotal)}</strong>
+                    </li>
+                  );
+                })()
               ))}
             </ul>
             <dl className="confirmation__details">
@@ -592,21 +575,6 @@ export function App() {
                 </dd>
               </div>
             </dl>
-            {whatsappHandoffUrl ? (
-              <a
-                className="button button--dark"
-                href={whatsappHandoffUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Continue in WhatsApp
-              </a>
-            ) : (
-              <p className="confirmation__whatsapp-status" role="status">
-                WhatsApp handoff is unavailable because its business number is
-                not configured.
-              </p>
-            )}
             <button
               className="button button--dark"
               type="button"
@@ -614,6 +582,9 @@ export function App() {
             >
               Continue shopping
             </button>
+            <p className="confirmation__redirect-note" role="status">
+              Returning to the collection in 5 seconds.
+            </p>
           </section>
         )}
       </main>
