@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getCatalogueProducts,
+  getLocalProductImageUrl,
   isVariantInStock,
   type CatalogueImage,
   type CatalogueProduct,
@@ -38,6 +39,7 @@ export function App() {
   const [catalogueError, setCatalogueError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshVersion, setRefreshVersion] = useState(0);
+  const [heroIndex, setHeroIndex] = useState(0);
   const lastTrackedPage = useRef<View | null>(null);
 
   useEffect(() => {
@@ -105,9 +107,24 @@ export function App() {
       ),
     [products],
   );
+  const heroProducts = useMemo(
+    () => productsWithEnoughSizes.filter((product) => product.images[0]).slice(0, 4),
+    [productsWithEnoughSizes],
+  );
+  const activeHeroProduct = heroProducts[heroIndex % Math.max(heroProducts.length, 1)];
   const selectedProduct = products.find(
     (product) => product.slug === selectedProductSlug,
   );
+
+  useEffect(() => {
+    if (view !== "shop" || selectedProductSlug || heroProducts.length < 2) {
+      return;
+    }
+    const intervalId = window.setInterval(() => {
+      setHeroIndex((currentIndex) => (currentIndex + 1) % heroProducts.length);
+    }, 5000);
+    return () => window.clearInterval(intervalId);
+  }, [heroProducts.length, selectedProductSlug, view]);
 
   const cartItems: CartItemView[] = useMemo(
     () =>
@@ -320,6 +337,10 @@ export function App() {
           <span className="store-brand__name">Manvelle</span>
           <span className="store-brand__caption">Menswear Ghana</span>
         </div>
+        <nav className="store-nav" aria-label="Main navigation">
+          <a href="#collection">Collection</a>
+          <a href="#collection">New arrivals</a>
+        </nav>
         <button
           className="bag-link"
           type="button"
@@ -361,22 +382,45 @@ export function App() {
         {view === "shop" && !selectedProduct && (
           <>
             <section className="hero">
-              <p className="eyebrow">Everyday, considered</p>
-              <h1>Made for the way you move.</h1>
-              <p>
-                Browse the collection, choose your size, and place your order.
-                We’ll confirm delivery details on WhatsApp.
-              </p>
+              <div className="hero__copy">
+                <p className="eyebrow">Manvelle / New collection</p>
+                <h1>Style that moves with you.</h1>
+                <p>
+                  Refined everyday menswear, made for the streets of Accra.
+                  Discover your next favourite fit.
+                </p>
+                <a className="hero__cta" href="#collection">Shop the collection <span>↗</span></a>
+                <div className="hero__scan">
+                  <span className="hero__qr" aria-hidden="true">
+                    <i /><i /><i /><i /><i /><i /><i /><i /><i />
+                  </span>
+                  <span><strong>Scan for</strong><br />exclusive offers</span>
+                </div>
+              </div>
+              <div className="hero__visual" aria-label="Featured product">
+                <div className="hero__burst">NEW<br /><small>DROP</small></div>
+                <img
+                  src={activeHeroProduct?.images[0]?.url ?? getLocalProductImageUrl("cargo-pants") ?? ""}
+                  alt={activeHeroProduct?.images[0]?.alt_text || activeHeroProduct?.name || "Featured product from the new collection"}
+                />
+              </div>
+              <div className="hero__accent">
+                <span className="hero__dots">•••</span>
+                <strong>MANVELLE</strong>
+                <span>Menswear Ghana</span>
+                <div className="hero__offer">10%<small>OFF</small></div>
+              </div>
             </section>
 
             <section
               className="catalogue-section"
+              id="collection"
               aria-labelledby="catalogue-heading"
             >
               <div className="section-heading">
                 <div>
                   <p className="eyebrow">The collection</p>
-                  <h2 id="catalogue-heading">Shop menswear</h2>
+                  <h2 id="catalogue-heading">Latest arrivals</h2>
                 </div>
                 <div className="catalogue-tools">
                   <span className="muted">

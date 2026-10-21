@@ -15,6 +15,8 @@ export type ProductAvailability = ProductRow["availability"];
 
 export type CatalogueImage = Pick<ProductImageRow, "id" | "alt_text"> & {
   url: string;
+  srcSet: string;
+  fallbackUrl: string | null;
   sortOrder: number;
   colorName: string;
 };
@@ -37,6 +39,10 @@ export type CatalogueProduct = Pick<
 
 const productImageBucket = "product-images";
 const localFixturePrefix = "local-fixtures/";
+const localCatalogAssets = import.meta.glob<string>(
+  "/catalog/**/*.{jpeg,jpg,png,webp}",
+  { eager: true, query: "?url", import: "default" },
+);
 
 type ProductFilters = {
   featuredOnly?: boolean;
@@ -123,6 +129,8 @@ async function loadProducts({
       alt_text: image.alt_text,
       sortOrder: image.sort_order,
       url: getProductImageUrl(image.storage_path),
+      srcSet: getProductImageSrcSet(image.storage_path),
+      fallbackUrl: getLocalCatalogImageUrl(image.storage_path),
       colorName: getImageName(image.storage_path),
     });
     imagesByProduct.set(image.product_id, images);
@@ -176,6 +184,59 @@ function getProductImageUrl(storagePath: string): string {
   return getSupabaseClient()
     .storage.from(productImageBucket)
     .getPublicUrl(storagePath).data.publicUrl;
+}
+
+function getProductImageSrcSet(storagePath: string): string {
+  if (storagePath.startsWith(localFixturePrefix)) {
+    return getProductImageUrl(storagePath);
+  }
+
+  const storage = getSupabaseClient().storage.from(productImageBucket);
+  return [
+    [480, 72],
+    [768, 76],
+    [1200, 80],
+  ]
+    .map(([width, quality]) => {
+      const url = storage.getPublicUrl(storagePath, {
+        transform: { width, quality },
+      }).data.publicUrl;
+      return `${url} ${width}w`;
+    })
+    .join(", ");
+}
+
+export function getLocalCatalogImageUrl(storagePath: string): string | null {
+  const match = storagePath.match(/^products\/([^/]+)\/([^/]+)$/);
+  if (!match) {
+    return null;
+  }
+
+  const slug = match[1];
+  const fileName = match[2];
+  if (!slug || !fileName) {
+    return null;
+  }
+  const catalogFolder =
+    slug === "khakie-trousers"
+      ? "khakie"
+      : slug === "beltless-material-trousers"
+        ? "beltless-trouser"
+        : slug;
+  return (
+    localCatalogAssets[`/catalog/${catalogFolder}/${fileName}`] ?? null
+  );
+}
+
+export function getLocalProductImageUrl(slug: string): string | null {
+  const defaults: Record<string, string> = {
+    "cargo-pants": "/catalog/pants/cargo-pants/cargo-tra7.jpeg",
+    "cargo-shorts": "/catalog/pants/cargo-shorts/spotted.jpeg",
+    "khakie-trousers": "/catalog/pants/khakie/brown.jpeg",
+    "beltless-material-trousers": "/catalog/pants/beltless-trouser/brown.jpeg",
+  };
+  const assetPath = defaults[slug];
+  return assetPath ? (localCatalogAssets[assetPath] ?? null) : null;
 }
 
 function getImageName(storagePath: string): string {

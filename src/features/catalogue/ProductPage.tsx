@@ -63,7 +63,11 @@ export function ProductPage({
             {selectedImage ? (
               <img
                 src={selectedImage.url}
+                srcSet={selectedImage.srcSet}
+                sizes="(max-width: 780px) 100vw, 52vw"
                 alt={selectedImage.alt_text || product.name}
+                fetchPriority="high"
+                decoding="async"
               />
             ) : (
               <div className="product-card__image-placeholder" role="img">
@@ -90,7 +94,14 @@ export function ProductPage({
                     aria-pressed={selectedImage?.id === image.id}
                     onClick={() => setSelectedImageId(image.id)}
                   >
-                    <img src={image.url} alt="" />
+                    <img
+                      src={image.url}
+                      srcSet={image.srcSet}
+                      sizes="5rem"
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                    />
                     <span>{image.colorName}</span>
                   </button>
                 ))}
