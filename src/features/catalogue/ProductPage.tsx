@@ -4,7 +4,10 @@ import type {
   CatalogueProduct,
   CatalogueVariant,
 } from "./catalogue.service";
-import { isVariantInStock } from "./catalogue.service";
+import {
+  getLocalProductImageUrl,
+  isVariantInStock,
+} from "./catalogue.service";
 import { formatGhs } from "../../lib/format-currency";
 
 type ProductPageProps = {
@@ -68,6 +71,18 @@ export function ProductPage({
                 alt={selectedImage.alt_text || product.name}
                 fetchPriority="high"
                 decoding="async"
+                onError={(event) => {
+                  const fallbackUrl =
+                    selectedImage.fallbackUrl ?? getLocalProductImageUrl(product.slug);
+                  if (
+                    !fallbackUrl ||
+                    event.currentTarget.src.endsWith(fallbackUrl)
+                  ) {
+                    return;
+                  }
+                  event.currentTarget.src = fallbackUrl;
+                  event.currentTarget.removeAttribute("srcset");
+                }}
               />
             ) : (
               <div className="product-card__image-placeholder" role="img">
@@ -101,6 +116,13 @@ export function ProductPage({
                       alt=""
                       loading="lazy"
                       decoding="async"
+                      onError={(event) => {
+                        if (!image.fallbackUrl) {
+                          return;
+                        }
+                        event.currentTarget.src = image.fallbackUrl;
+                        event.currentTarget.removeAttribute("srcset");
+                      }}
                     />
                     <span>{image.colorName}</span>
                   </button>
@@ -111,22 +133,9 @@ export function ProductPage({
         </div>
 
         <div className="product-page__details">
-          <p className="eyebrow">Product details</p>
           <h1 id="product-page-title">{product.name}</h1>
           <p className="product-page__price">{formatGhs(product.price)}</p>
           <p className="product-page__description">{product.description}</p>
-          {product.key_features.trim() && (
-            <ul className="product-page__features">
-              {product.key_features
-                .split(/\r?\n/)
-                .map((feature) => feature.trim())
-                .filter(Boolean)
-                .map((feature) => (
-                  <li key={feature}>{feature}</li>
-                ))}
-            </ul>
-          )}
-
           <div className="form-field">
             <label htmlFor={`product-size-${product.id}`}>Size</label>
             <select
@@ -160,32 +169,34 @@ export function ProductPage({
           >
             {isAvailable ? "Available" : "Out of stock"}
           </p>
-          <button
-            className="button button--dark button--wide"
-            type="button"
-            disabled={
-              !selectedVariant || !isVariantInStock(product, selectedVariant)
-            }
-            onClick={() =>
-              selectedVariant &&
-              onAddToCart(product, selectedVariant, selectedImage)
-            }
-          >
-            Add to bag
-          </button>
+          <div className="product-page__actions">
+            <button
+              className="button button--dark"
+              type="button"
+              disabled={
+                !selectedVariant || !isVariantInStock(product, selectedVariant)
+              }
+              onClick={() =>
+                selectedVariant &&
+                onAddToCart(product, selectedVariant, selectedImage)
+              }
+            >
+              Add to bag
+            </button>
+            {canProceedToCheckout && (
+              <button
+                className="button button--secondary"
+                type="button"
+                onClick={onProceedToCheckout}
+              >
+                Proceed to checkout
+              </button>
+            )}
+          </div>
           {cartMessage && (
             <p className="cart-feedback" role="status">
               {cartMessage}
             </p>
-          )}
-          {canProceedToCheckout && (
-            <button
-              className="button button--secondary button--wide"
-              type="button"
-              onClick={onProceedToCheckout}
-            >
-              Proceed to checkout
-            </button>
           )}
         </div>
       </div>

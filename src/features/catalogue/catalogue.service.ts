@@ -223,9 +223,22 @@ export function getLocalCatalogImageUrl(storagePath: string): string | null {
       : slug === "beltless-material-trousers"
         ? "beltless-trouser"
         : slug;
-  return (
-    localCatalogAssets[`/catalog/${catalogFolder}/${fileName}`] ?? null
+  return findLocalCatalogAsset(catalogFolder, fileName);
+}
+
+// Local images live under nested folders (for example
+// /catalog/pants/cargo-pants/cargo-tra2.jpeg), so match on the trailing
+// "<folder>/<file>" instead of assuming a flat /catalog/<folder>/ layout.
+function findLocalCatalogAsset(folder: string, fileName: string): string | null {
+  const exact = localCatalogAssets[`/catalog/${folder}/${fileName}`];
+  if (exact) {
+    return exact;
+  }
+  const suffix = `/${folder}/${fileName}`;
+  const key = Object.keys(localCatalogAssets).find((assetPath) =>
+    assetPath.endsWith(suffix),
   );
+  return key ? (localCatalogAssets[key] ?? null) : null;
 }
 
 export function getLocalProductImageUrl(slug: string): string | null {
