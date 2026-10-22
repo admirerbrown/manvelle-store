@@ -165,7 +165,7 @@ export function CheckoutForm({
         onClick={onBack}
         disabled={isSubmitting || retrySameSubmissionOnly}
       >
-        &lt;- Back to your bag
+        ← Back to your bag
       </button>
       <div className="section-heading">
         <div>
@@ -366,79 +366,83 @@ export function CheckoutForm({
         </form>
 
         <aside className="checkout-summary" aria-labelledby="summary-heading">
-          <h2 id="summary-heading">Order summary</h2>
-          <ul className="checkout-summary__items">
-            {cart.map((item) => {
-              const product = products.get(item.productId);
-              const variant = product?.variants.find(
-                (candidate) => candidate.id === item.variantId,
-              );
-              const colorImage =
-                product && item.imageId
-                  ? product.images.find((image) => image.id === item.imageId)
-                  : undefined;
-              const thumb = colorImage ?? product?.images[0];
-              const meta = [
-                `Size ${variant?.size ?? "-"}`,
-                `Qty ${item.quantity}`,
-                colorImage?.colorName,
-              ]
-                .filter(Boolean)
-                .join(" · ");
+          <div className="checkout-summary__display">
+            <h2 id="summary-heading">Order summary</h2>
+            <ul className="checkout-summary__items">
+              {cart.map((item) => {
+                const product = products.get(item.productId);
+                const variant = product?.variants.find(
+                  (candidate) => candidate.id === item.variantId,
+                );
+                const colorImage =
+                  product && item.imageId
+                    ? product.images.find((image) => image.id === item.imageId)
+                    : undefined;
+                const thumb = colorImage ?? product?.images[0];
+                const meta = [
+                  `Size ${variant?.size ?? "-"}`,
+                  `Qty ${item.quantity}`,
+                  colorImage?.colorName,
+                ]
+                  .filter(Boolean)
+                  .join(" · ");
 
-              return (
-                <li key={getCartLineKey(item)}>
-                  {thumb && (
-                    <img
-                      className="checkout-summary__thumb"
-                      src={thumb.url}
-                      alt=""
-                      loading="lazy"
-                      decoding="async"
-                      onError={(event) => {
-                        if (
-                          thumb.fallbackUrl &&
-                          !event.currentTarget.src.endsWith(thumb.fallbackUrl)
-                        ) {
-                          event.currentTarget.src = thumb.fallbackUrl;
-                        }
-                      }}
-                    />
-                  )}
-                  <div className="checkout-summary__info">
-                    <p className="checkout-summary__name">
-                      {product?.name ?? "Product"}
-                    </p>
-                    <p className="checkout-summary__meta">{meta}</p>
-                  </div>
-                  <strong>
-                    {product
-                      ? formatGhs(product.price * item.quantity)
-                      : "Unavailable"}
-                  </strong>
-                </li>
-              );
-            })}
-          </ul>
-          <dl className="checkout-summary__totals">
-            <div>
-              <dt>Subtotal</dt>
-              <dd>{formatGhs(subtotal)}</dd>
-            </div>
-            <div>
-              <dt>Delivery</dt>
-              <dd>Confirmed on WhatsApp</dd>
-            </div>
-            <div className="checkout-summary__grand-total">
-              <dt>Total before delivery</dt>
-              <dd>{formatGhs(subtotal)}</dd>
-            </div>
-          </dl>
-          <p>
-            Your delivery fee and final total will be confirmed with you on
-            WhatsApp. Final prices and stock are verified when your order is
-            placed.
-          </p>
+                return (
+                  <li key={getCartLineKey(item)}>
+                    {thumb && (
+                      <img
+                        className="checkout-summary__thumb"
+                        src={thumb.url}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        onError={(event) => {
+                          if (
+                            thumb.fallbackUrl &&
+                            !event.currentTarget.src.endsWith(thumb.fallbackUrl)
+                          ) {
+                            event.currentTarget.src = thumb.fallbackUrl;
+                          }
+                        }}
+                      />
+                    )}
+                    <div className="checkout-summary__info">
+                      <p className="checkout-summary__name">
+                        {product?.name ?? "Product"}
+                      </p>
+                      <p className="checkout-summary__meta">{meta}</p>
+                    </div>
+                    <strong>
+                      {product
+                        ? formatGhs(product.price * item.quantity)
+                        : "Unavailable"}
+                    </strong>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="checkout-summary__note">
+              Your delivery fee and final total will be confirmed with you on
+              WhatsApp. Final prices and stock are verified when your order is
+              placed.
+            </p>
+          </div>
+          <div className="checkout-summary__footer">
+            <dl className="checkout-summary__totals">
+              <div>
+                <dt>Subtotal</dt>
+                <dd>{formatGhs(subtotal)}</dd>
+              </div>
+              <div>
+                <dt>Delivery</dt>
+                <dd>Confirmed on WhatsApp</dd>
+              </div>
+              <div className="checkout-summary__grand-total">
+                <dt>Total before delivery</dt>
+                <dd>{formatGhs(subtotal)}</dd>
+              </div>
+            </dl>
+          </div>
         </aside>
       </div>
     </section>

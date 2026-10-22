@@ -3414,3 +3414,401 @@ body {
 .bag-page__back:hover {
   background: var(--lime);
 }
+
+/* Summary boxes: clean warm-grey panel with a lime top accent (change --summary-bg to retheme) */
+.checkout-summary,
+.bag-summary {
+  --summary-bg: #f6f6f3;
+  --summary-muted: #65695f;
+  --summary-line: #e3e3e0;
+  background: var(--summary-bg);
+  box-shadow: inset 0 3px 0 var(--lime);
+}
+
+.bag-summary__totals dt,
+.bag-summary > p {
+  color: var(--summary-muted);
+}
+
+.bag-summary__totals .bag-summary__grand-total {
+  border-top-color: var(--summary-line);
+}
+
+.checkout-summary__thumb {
+  border: 1px solid var(--summary-line);
+}
+
+/* Summary boxes: soft lemon (change --summary-bg to retheme) */
+.checkout-summary,
+.bag-summary {
+  --summary-bg: #f7f3c4;
+  --summary-muted: #6a6740;
+  --summary-line: rgba(32, 34, 31, 0.13);
+  background: var(--summary-bg);
+  box-shadow: none;
+}
+
+.checkout-summary__thumb {
+  border-color: rgba(32, 34, 31, 0.1);
+}
+
+/* Summary boxes: white with a hairline border */
+.checkout-summary,
+.bag-summary {
+  --summary-bg: #ffffff;
+  --summary-muted: #65695f;
+  --summary-line: #ececea;
+  border: 1px solid var(--summary-line);
+  background: var(--summary-bg);
+  box-shadow: 0 0.5rem 1.5rem rgba(23, 33, 42, 0.05);
+}
+
+.checkout-summary__thumb {
+  border-color: var(--summary-line);
+  background: #f5f5f3;
+}
+
+/* Summary boxes: white display area, black totals area */
+.checkout-summary {
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #e6e6e6;
+  background: #fff;
+}
+
+.checkout-summary__display {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  padding: 1.5rem 1.5rem 0.5rem;
+  background: #fff;
+}
+
+.checkout-summary__display h2 {
+  flex: none;
+  margin-bottom: 1.1rem;
+}
+
+.checkout-summary__display .checkout-summary__items {
+  border-bottom: 0;
+  padding-bottom: 1rem;
+}
+
+.checkout-summary__footer {
+  flex: none;
+  padding: 1.5rem;
+  background: var(--accent-ink);
+  color: #fff;
+}
+
+.checkout-summary__footer .checkout-summary__totals {
+  margin: 0;
+}
+
+.checkout-summary__footer .checkout-summary__totals dt {
+  color: rgba(255, 255, 255, 0.66);
+}
+
+.checkout-summary__footer .checkout-summary__totals dd {
+  color: #fff;
+}
+
+.checkout-summary__footer .checkout-summary__totals .checkout-summary__grand-total {
+  border-top-color: rgba(255, 255, 255, 0.18);
+}
+
+.checkout-summary__footer .checkout-summary__grand-total dt {
+  color: #fff;
+}
+
+.checkout-summary__footer > p {
+  margin: 1.1rem 0 0;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.76rem;
+  line-height: 1.65;
+}
+
+/* Bag summary: all totals, so the whole box is black */
+.bag-summary {
+  border-color: var(--accent-ink);
+  background: var(--accent-ink);
+  box-shadow: none;
+}
+
+.bag-summary h2,
+.bag-summary__totals dd,
+.bag-summary__grand-total dt {
+  color: #fff;
+}
+
+.bag-summary__totals dt,
+.bag-summary > p {
+  color: rgba(255, 255, 255, 0.66);
+}
+
+.bag-summary__totals .bag-summary__grand-total {
+  border-top-color: rgba(255, 255, 255, 0.18);
+}
+
+.bag-summary > .cart-item__issue {
+  color: #ff9d8e;
+}
+
+.bag-summary .button {
+  background: var(--lime);
+  color: var(--accent-ink);
+}
+
+.bag-summary .button:hover:not(:disabled) {
+  background: #b7dc58;
+  box-shadow: none;
+}
+
+/* ---------------------------------------------------------------
+   Checkout summary: products on top (light), receipt below (black).
+   Works with or without the __display / __footer wrapper divs.
+   Change --summary-top-bg to #fff or a lemon such as #f7f3c4.
+   --------------------------------------------------------------- */
+.checkout-summary {
+  --summary-top-bg: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #e6e6e6;
+  border-radius: 0.9rem;
+  background: var(--accent-ink);
+  box-shadow: none;
+}
+
+/* top: products */
+.checkout-summary > h2,
+.checkout-summary > .checkout-summary__items,
+.checkout-summary > .checkout-summary__display {
+  background: var(--summary-top-bg);
+}
+
+.checkout-summary > h2 {
+  flex: none;
+  margin: 0;
+  padding: 1.5rem 1.5rem 1.1rem;
+}
+
+.checkout-summary > .checkout-summary__items {
+  margin: 0;
+  padding: 0 1rem 1.25rem 1.5rem;
+  border: 0;
+}
+
+.checkout-summary > .checkout-summary__display {
+  padding: 1.5rem 1rem 0.75rem 1.5rem;
+}
+
+.checkout-summary__display .checkout-summary__items {
+  padding-right: 0.5rem;
+  border: 0;
+}
+
+/* bottom: receipt */
+.checkout-summary > .checkout-summary__totals {
+  flex: none;
+  margin: 0;
+  padding: 1.5rem 1.5rem 0;
+  background: var(--accent-ink);
+}
+
+.checkout-summary > p,
+.checkout-summary__footer {
+  flex: none;
+  margin: 0;
+  background: var(--accent-ink);
+}
+
+.checkout-summary > p {
+  padding: 1.1rem 1.5rem 1.5rem;
+}
+
+.checkout-summary__footer {
+  padding: 1.5rem;
+}
+
+.checkout-summary__footer .checkout-summary__totals {
+  padding: 0;
+  background: transparent;
+}
+
+.checkout-summary__footer > p {
+  margin: 1.1rem 0 0;
+}
+
+.checkout-summary .checkout-summary__totals dt {
+  color: rgba(255, 255, 255, 0.66);
+}
+
+.checkout-summary .checkout-summary__totals dd {
+  color: #fff;
+}
+
+.checkout-summary .checkout-summary__totals .checkout-summary__grand-total {
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.checkout-summary .checkout-summary__grand-total dt {
+  color: #fff;
+}
+
+.checkout-summary > p,
+.checkout-summary__footer > p {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.76rem;
+  line-height: 1.65;
+}
+
+/* ---------------------------------------------------------------
+   Order summary v3: elevated tile list on top, soft charcoal receipt
+   at the bottom (35% of the box). Needs the __display / __footer markup.
+   --------------------------------------------------------------- */
+.checkout-summary,
+.bag-summary {
+  --summary-dark: linear-gradient(165deg, #3f4337 0%, #2f322b 100%);
+}
+
+.checkout-summary {
+  --summary-top-bg: #ffffff;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) minmax(max-content, 35%);
+  height: min(34rem, calc(100dvh - 9rem));
+  min-height: 27rem;
+  max-height: none;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #e6e6e6;
+  border-radius: 0.9rem;
+  background: #fff;
+}
+
+.checkout-summary__display {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 1.5rem 1rem 1rem 1.5rem;
+  background: var(--summary-top-bg);
+}
+
+.checkout-summary__display h2 {
+  flex: none;
+  margin: 0 0 1rem;
+}
+
+.checkout-summary__display .checkout-summary__items {
+  display: grid;
+  flex: 1 1 auto;
+  align-content: start;
+  gap: 0.6rem;
+  min-height: 0;
+  margin: 0;
+  padding: 0.2rem 0.5rem 0.5rem 0.2rem;
+  overflow-y: auto;
+  border: 0;
+}
+
+/* list tiles */
+.checkout-summary__display .checkout-summary__items li {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid #efefec;
+  border-radius: 0.7rem;
+  background: #fff;
+  box-shadow: 0 0.25rem 0.75rem rgba(23, 33, 42, 0.07);
+}
+
+.checkout-summary__display .checkout-summary__thumb {
+  width: 3rem;
+  height: 3rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: #f5f5f3;
+}
+
+.checkout-summary__note {
+  flex: none;
+  margin: 0.75rem 0 0;
+  color: var(--theme-muted);
+  font-size: 0.7rem;
+  line-height: 1.55;
+}
+
+/* receipt */
+.checkout-summary__footer {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 1.25rem 1.5rem;
+  background: var(--summary-dark);
+  color: #fff;
+}
+
+.checkout-summary__footer .checkout-summary__totals {
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.checkout-summary__footer .checkout-summary__totals > div {
+  padding: 0;
+  border: 0;
+}
+
+.checkout-summary__footer .checkout-summary__totals .checkout-summary__grand-total {
+  margin-top: 0.3rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.checkout-summary__footer .checkout-summary__grand-total dd {
+  font-size: 1.15rem;
+}
+
+@media (max-width: 780px) {
+  .checkout-summary {
+    height: auto;
+    min-height: 0;
+    grid-template-rows: auto auto;
+  }
+
+  .checkout-summary__display .checkout-summary__items {
+    max-height: 18rem;
+  }
+}
+
+/* Bag summary uses the same soft charcoal */
+.bag-summary {
+  border-color: transparent;
+  background: var(--summary-dark);
+}
+
+/* Delivery location tag */
+.checkout__payment {
+  gap: 0.55rem;
+  padding: 0.5rem 0.85rem;
+  border: 1px solid #d9dbd4;
+  border-radius: 0;
+  background: transparent;
+  color: var(--theme-midnight);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.checkout__payment::before {
+  width: 0.4rem;
+  height: 0.4rem;
+}
