@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
   getCatalogueProducts,
   getLocalProductImageUrl,
@@ -18,9 +18,14 @@ import {
 import { CheckoutForm } from "../features/checkout/CheckoutForm";
 import type { GuestOrderConfirmation } from "../features/checkout/checkout.service";
 import { formatGhs } from "../lib/format-currency";
+import categoryData from "../../catalog/category.json";
 
 type View = "shop" | "bag" | "checkout" | "confirmation";
 const minimumProductVariantCount = 4;
+
+function categoryContainsProduct(categoryId: string, productCategory: string | null) {
+  return productCategory === categoryId || productCategory?.startsWith(`${categoryId}/`) === true;
+}
 
 export function App() {
   const [products, setProducts] = useState<CatalogueProduct[]>([]);
@@ -40,6 +45,9 @@ export function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [heroIndex, setHeroIndex] = useState(0);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const trendingCarouselRef = useRef<HTMLDivElement>(null);
+  const newArrivalsCarouselRef = useRef<HTMLDivElement>(null);
   const lastTrackedPage = useRef<View | null>(null);
 
   useEffect(() => {
@@ -106,6 +114,41 @@ export function App() {
         (product) => product.variants.length >= minimumProductVariantCount,
       ),
     [products],
+  );
+  const visibleProducts = useMemo(
+    () =>
+      selectedCategory === null
+        ? productsWithEnoughSizes
+        : productsWithEnoughSizes.filter((product) =>
+            categoryContainsProduct(selectedCategory, product.category),
+          ),
+    [productsWithEnoughSizes, selectedCategory],
+  );
+  const trendingProducts = useMemo(
+    () => productsWithEnoughSizes.filter((product) => product.featured).slice(0, 4),
+    [productsWithEnoughSizes],
+  );
+  const newArrivalProducts = useMemo(
+    () => productsWithEnoughSizes.slice(0, 4),
+    [productsWithEnoughSizes],
+  );
+  const defaultCategory = useMemo(
+    () =>
+      categoryData.categories.find((category) =>
+        productsWithEnoughSizes.some((product) =>
+          categoryContainsProduct(category.id, product.category),
+        ),
+      ) ?? categoryData.categories[0],
+    [productsWithEnoughSizes],
+  );
+  const defaultCategoryProducts = useMemo(
+    () =>
+      defaultCategory
+        ? productsWithEnoughSizes
+            .filter((product) => categoryContainsProduct(defaultCategory.id, product.category))
+            .slice(0, 4)
+        : [],
+    [defaultCategory, productsWithEnoughSizes],
   );
   const heroProducts = useMemo(
     () => productsWithEnoughSizes.filter((product) => product.images[0]).slice(0, 4),
@@ -330,6 +373,67 @@ export function App() {
     setView("bag");
   }
 
+  function handleCategorySelect(categoryId: string) {
+    setSelectedProductSlug(null);
+    setSelectedCategory(categoryId);
+    setView("shop");
+    window.setTimeout(() => {
+      document.getElementById("collection")?.scrollIntoView({ behavior: "smooth" });
+    }, 0);
+  }
+
+  function handleHomeSectionNavigation(sectionId: string) {
+    setSelectedProductSlug(null);
+    setSelectedCategory(null);
+    setView("shop");
+    window.setTimeout(() => {
+      document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth" });
+    }, 0);
+  }
+
+  function renderProductGrid(items: CatalogueProduct[]) {
+    return (
+      <div className="product-grid">
+        {items.map((product) => (
+          <ProductCard key={product.id} product={product} onOpenProduct={handleOpenProduct} />
+        ))}
+      </div>
+    );
+  }
+
+  function renderProductCarousel(
+    items: CatalogueProduct[],
+    carouselRef: RefObject<HTMLDivElement | null>,
+  ) {
+    return (
+      <div className="product-carousel">
+        <button
+          className="product-carousel__control product-carousel__control--previous"
+          type="button"
+          aria-label="Previous products"
+          onClick={() => carouselRef.current?.scrollBy({ left: -carouselRef.current.clientWidth * 0.85, behavior: "smooth" })}
+        >
+          ←
+        </button>
+        <div className="product-carousel__viewport" ref={carouselRef}>
+          <div className="product-grid product-grid--carousel">
+            {items.map((product) => (
+              <ProductCard key={product.id} product={product} onOpenProduct={handleOpenProduct} />
+            ))}
+          </div>
+        </div>
+        <button
+          className="product-carousel__control product-carousel__control--next"
+          type="button"
+          aria-label="Next products"
+          onClick={() => carouselRef.current?.scrollBy({ left: carouselRef.current.clientWidth * 0.85, behavior: "smooth" })}
+        >
+          →
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="storefront">
       <header className="store-header">
@@ -338,8 +442,35 @@ export function App() {
           <span className="store-brand__caption">Menswear Ghana</span>
         </div>
         <nav className="store-nav" aria-label="Main navigation">
-          <a href="#collection">Collection</a>
-          <a href="#collection">New arrivals</a>
+          <a href="#collection" onClick={() => handleHomeSectionNavigation("collection")}>Home</a>
+          <div className="store-nav__dropdown">
+            <button className="store-nav__trigger" type="button">
+              Categories <span aria-hidden="true">⌄</span>
+            </button>
+            <div className="store-nav__menu">
+              {categoryData.categories.map((category) => (
+                <div className="store-nav__menu-group" key={category.id}>
+                  <button type="button" onClick={() => handleCategorySelect(category.id)}>
+                    {category.name}
+                  </button>
+                  {category.subcategories.length > 0 && (
+                    <div className="store-nav__submenu">
+                      {category.subcategories.map((subcategory) => (
+                        <button
+                          key={`${category.id}/${subcategory.id}`}
+                          type="button"
+                          onClick={() => handleCategorySelect(`${category.id}/${subcategory.id}`)}
+                        >
+                          {subcategory.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+          <a href="#new-arrivals" onClick={() => handleHomeSectionNavigation("new-arrivals")}>New arrivals</a>
         </nav>
         <button
           className="bag-link"
@@ -420,12 +551,16 @@ export function App() {
               <div className="section-heading">
                 <div>
                   <p className="eyebrow">The collection</p>
-                  <h2 id="catalogue-heading">Latest arrivals</h2>
+                  <h2 id="catalogue-heading">
+                    {selectedCategory
+                      ? selectedCategory.split("/").at(-1)?.replace(/-/g, " ")
+                      : "Shop the collection"}
+                  </h2>
                 </div>
                 <div className="catalogue-tools">
                   <span className="muted">
-                    {productsWithEnoughSizes.length}{" "}
-                    {productsWithEnoughSizes.length === 1 ? "style" : "styles"}
+                    {visibleProducts.length}{" "}
+                    {visibleProducts.length === 1 ? "style" : "styles"}
                   </span>
                   <button
                     className="text-button"
@@ -476,18 +611,50 @@ export function App() {
                   </p>
                 )}
 
-              {!catalogueError && productsWithEnoughSizes.length > 0 && (
-                <div className="product-grid">
-                  {productsWithEnoughSizes.map((product) => {
-                    return (
-                      <ProductCard
-                        key={product.id}
-                        product={product}
-                        onOpenProduct={handleOpenProduct}
-                      />
-                    );
-                  })}
+              {!catalogueError && !isLoading && selectedCategory !== null && visibleProducts.length > 0 && (
+                renderProductGrid(visibleProducts)
+              )}
+              {!catalogueError && !isLoading && selectedCategory === null && (
+                <div className="home-collections">
+                  <section className="home-collection" aria-labelledby="trending-heading">
+                    <div className="section-heading section-heading--compact">
+                      <div>
+                        <p className="eyebrow">Popular now</p>
+                        <h2 id="trending-heading">Trending items</h2>
+                      </div>
+                    </div>
+                    {renderProductCarousel(
+                      trendingProducts.length > 0 ? trendingProducts : newArrivalProducts,
+                      trendingCarouselRef,
+                    )}
+                  </section>
+                  <section className="home-collection" id="new-arrivals" aria-labelledby="new-arrivals-heading">
+                    <div className="section-heading section-heading--compact">
+                      <div>
+                        <p className="eyebrow">Just in</p>
+                        <h2 id="new-arrivals-heading">New arrivals</h2>
+                      </div>
+                    </div>
+                    {renderProductCarousel(newArrivalProducts, newArrivalsCarouselRef)}
+                  </section>
+                  {defaultCategory && (
+                    <section className="home-collection" aria-labelledby="default-category-heading">
+                      <div className="section-heading section-heading--compact">
+                        <div>
+                          <p className="eyebrow">Shop by category</p>
+                          <h2 id="default-category-heading">{defaultCategory.name}</h2>
+                        </div>
+                        <button className="text-button" type="button" onClick={() => handleCategorySelect(defaultCategory.id)}>
+                          View more ↗
+                        </button>
+                      </div>
+                      {renderProductGrid(defaultCategoryProducts)}
+                    </section>
+                  )}
                 </div>
+              )}
+              {!catalogueError && !isLoading && productsWithEnoughSizes.length > 0 && selectedCategory !== null && visibleProducts.length === 0 && (
+                <p className="status-message">No products are assigned to this category yet.</p>
               )}
             </section>
 

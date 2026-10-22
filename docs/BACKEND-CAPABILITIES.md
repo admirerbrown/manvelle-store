@@ -94,13 +94,16 @@ than 12 months.
 
 Edit [`../catalog/products.csv`](../catalog/products.csv) in a spreadsheet
 editor. Its columns are `name`, `description`, `key_features`,
-`available_sizes`, `availability`, and `price`. Separate multiple sizes with
+`available_sizes`, `availability`, `price`, and `category`. Assign each
+product a valid category key from `../catalog/category.json`; nested
+categories use `parent/child` (for example, `pants/office`). Separate multiple sizes with
 `|`; availability must be `in-stock` or `out-of-stock`; price is in GHS.
 Slugs are generated from product names and are used to match image folders.
 Each product needs at least four unique sizes. Add image files to a folder
-named after the generated slug under `catalog/`. The initial `khakie-trousers`
-and `beltless-material-trousers` folders have explicit aliases to their
-existing image directories.
+under `catalog/<category>/<product-slug>/`, where the category path mirrors the
+category key in the spreadsheet. The initial `khakie-trousers` and
+`beltless-material-trousers` products use the `khakie` and `beltless-trouser`
+folder aliases respectively.
 
 Run `npm run catalog:validate` to check rows, sizes, availability, and image
 folder mappings without making database changes. For an authorized import,
@@ -123,8 +126,11 @@ prices, delivery area, and stock are not real business data.
 
 ## Products, categories, and collections
 
-Products currently have a `category` text field. This can label a product, but
-the current storefront does not provide category browsing/filtering.
+Products have a `category` text field populated from the spreadsheet. The
+catalogue sync validates the key against `catalog/category.json` before saving,
+and the storefront provides parent and subcategory browsing/filtering from the
+same taxonomy. Shoes is available as a normal category and can receive products
+through the spreadsheet.
 
 There is **no separate collections feature** yet: the database has no
 collection table or product-to-collection membership, and the storefront has

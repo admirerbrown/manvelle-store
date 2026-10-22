@@ -207,23 +207,44 @@ function getProductImageSrcSet(storagePath: string): string {
 }
 
 export function getLocalCatalogImageUrl(storagePath: string): string | null {
-  const match = storagePath.match(/^products\/([^/]+)\/([^/]+)$/);
-  if (!match) {
+  const segments = storagePath.split("/");
+  if (segments[0] !== "products") {
     return null;
   }
 
-  const slug = match[1];
-  const fileName = match[2];
-  if (!slug || !fileName) {
+  if (segments.length >= 4) {
+    const slug = segments.at(-2);
+    const fileName = segments.at(-1);
+    const categoryPath = segments.slice(1, -2);
+    if (slug && fileName) {
+      const categoryAsset = findLocalCatalogAsset(
+        [...categoryPath, slug].join("/"),
+        fileName,
+      );
+      if (categoryAsset) {
+        return categoryAsset;
+      }
+    }
+  }
+
+  // Keep resolving older storage rows created before category folders were introduced.
+  const legacyMatch = storagePath.match(/^products\/([^/]+)\/([^/]+)$/);
+  if (!legacyMatch) {
     return null;
   }
+  const legacySlug = legacyMatch[1] ?? "";
+  const legacyFileName = legacyMatch[2] ?? "";
+  const nestedLegacyAsset = findLocalCatalogAsset(legacySlug, legacyFileName);
+  if (nestedLegacyAsset) {
+    return nestedLegacyAsset;
+  }
   const catalogFolder =
-    slug === "khakie-trousers"
+    legacySlug === "khakie-trousers"
       ? "khakie"
-      : slug === "beltless-material-trousers"
+      : legacySlug === "beltless-material-trousers"
         ? "beltless-trouser"
-        : slug;
-  return findLocalCatalogAsset(catalogFolder, fileName);
+        : legacySlug;
+  return findLocalCatalogAsset(catalogFolder, legacyFileName);
 }
 
 // Local images live under nested folders (for example
@@ -242,13 +263,9 @@ function findLocalCatalogAsset(folder: string, fileName: string): string | null 
 }
 
 export function getLocalProductImageUrl(slug: string): string | null {
-  const defaults: Record<string, string> = {
-    "cargo-pants": "/catalog/pants/cargo-pants/cargo-tra7.jpeg",
-    "cargo-shorts": "/catalog/pants/cargo-shorts/spotted.jpeg",
-    "khakie-trousers": "/catalog/pants/khakie/brown.jpeg",
-    "beltless-material-trousers": "/catalog/pants/beltless-trouser/brown.jpeg",
-  };
-  const assetPath = defaults[slug];
+  const assetPath = Object.keys(localCatalogAssets).find((path) =>
+    path.includes(`/${slug}/`),
+  );
   return assetPath ? (localCatalogAssets[assetPath] ?? null) : null;
 }
 

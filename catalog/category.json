@@ -1,0 +1,39 @@
+{
+  "categories": [
+    {
+      "id": "mens-underwear",
+      "name": "Men's underwear",
+      "subcategories": [
+        { "id": "boxers", "name": "Boxers", "items": [] },
+        { "id": "singlets", "name": "Singlets", "items": [] },
+        { "id": "full-tshirt-underwear", "name": "Full T-shirt underwear", "items": [] }
+      ]
+    },
+    {
+      "id": "tops",
+      "name": "Tops",
+      "subcategories": [
+        { "id": "shirts", "name": "Shirts", "items": [] },
+        { "id": "t-shirts", "name": "T-shirts", "items": [] }
+      ]
+    },
+    { "id": "top-and-down", "name": "Top & down", "subcategories": [], "items": [] },
+    {
+      "id": "pants",
+      "name": "Pants",
+      "subcategories": [
+        { "id": "office", "name": "Office", "items": [] },
+        { "id": "casual", "name": "Casual", "items": [] },
+        { "id": "shorts", "name": "Shorts", "items": [] }
+      ]
+    },
+    {
+      "id": "shoes",
+      "name": "Shoes",
+      "subcategories": [
+        { "id": "office", "name": "Office", "items": [] },
+        { "id": "casual", "name": "Casual", "items": [] }
+      ]
+    }
+  ]
+}

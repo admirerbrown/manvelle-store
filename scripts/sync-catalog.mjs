@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const catalogPath = path.join(projectRoot, "catalog", "products.csv");
+const categoryPath = path.join(projectRoot, "catalog", "category.json");
 const imageRoot = path.join(projectRoot, "catalog");
 const bucketName = "product-images";
 const imageDirectoryAliases = new Map([
@@ -71,6 +72,17 @@ function slugify(name) {
     .replace(/^-|-$/g, "");
 }
 
+function loadCategoryIds() {
+  return readFile(categoryPath, "utf8").then((contents) => {
+    const config = JSON.parse(contents);
+    return new Set(config.categories.flatMap((category) =>
+      category.subcategories.length > 0
+        ? category.subcategories.map((subcategory) => `${category.id}/${subcategory.id}`)
+        : [category.id],
+    ));
+  });
+}
+
 function parseProducts(csv) {
   const rows = parseCsv(csv);
   const headers = rows.shift();
@@ -81,6 +93,7 @@ function parseProducts(csv) {
     "available_sizes",
     "availability",
     "price",
+    "category",
   ];
 
   if (
@@ -95,10 +108,10 @@ function parseProducts(csv) {
   return rows.map((values, index) => {
     const line = index + 2;
     if (values.length !== expectedHeaders.length) {
-      fail(`Spreadsheet row ${line} has ${values.length} columns; expected 6.`);
+      fail(`Spreadsheet row ${line} has ${values.length} columns; expected 7.`);
     }
 
-    const [name, description, keyFeatures, sizesValue, availability, priceValue] =
+    const [name, description, keyFeatures, sizesValue, availability, priceValue, category] =
       values.map((value) => value.trim());
     const slug = slugify(name);
     const sizes = sizesValue
@@ -107,7 +120,7 @@ function parseProducts(csv) {
       .filter(Boolean);
     const price = Number(priceValue);
 
-    if (!name || !description || !slug || !keyFeatures) {
+    if (!name || !description || !slug || !keyFeatures || !category) {
       fail(`Spreadsheet row ${line} must include a name, description, and key features.`);
     }
     if (slugs.has(slug)) {
@@ -132,36 +145,23 @@ function parseProducts(csv) {
       sizes,
       availability,
       price,
+      category,
     };
   });
 }
 
-async function findImageDirectory(slug) {
-  const expectedName = imageDirectoryAliases.get(slug) ?? slug;
-  const directories = [];
-
-  async function visit(directory) {
-    const entries = await readdir(directory, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        const entryPath = path.join(directory, entry.name);
-        directories.push(entryPath);
-        await visit(entryPath);
-      }
-    }
-  }
-
-  await visit(imageRoot);
-  const matches = directories.filter(
-    (directory) => path.basename(directory) === expectedName,
-  );
-  if (matches.length !== 1) {
+async function findImageDirectory(product) {
+  const expectedName = imageDirectoryAliases.get(product.slug) ?? product.slug;
+  const categoryParts = product.category.split("/");
+  const directory = path.join(imageRoot, ...categoryParts, expectedName);
+  try {
+    await readdir(directory);
+  } catch {
     fail(
-      `Expected one image folder named "${expectedName}" for ${slug}; found ${matches.length}.`,
+      `Expected image folder ${path.relative(projectRoot, directory)} for ${product.name}.`,
     );
   }
-
-  return matches[0];
+  return directory;
 }
 
 async function getImageInfo(filePath, folder) {
@@ -245,12 +245,17 @@ function loadCatalogEnvironment() {
 }
 
 async function validateCatalog(products) {
+  const categoryIds = await loadCategoryIds();
   for (const product of products) {
-    const folder = await findImageDirectory(product.slug);
+    if (!categoryIds.has(product.category)) {
+      fail(`The category "${product.category}" for ${product.name} is not defined in catalog/category.json.`);
+    }
+    const folder = await findImageDirectory(product);
     const images = await listImages(folder);
     console.log(
       `${product.name}: ${product.sizes.length} sizes, ${product.availability}, ` +
-        `${images.length} images (${path.relative(projectRoot, folder)})`,
+        `${images.length} images, ${product.category} ` +
+        `(${path.relative(projectRoot, folder)})`,
     );
   }
 }
@@ -295,7 +300,7 @@ async function syncCatalog(products) {
   }
 
   for (const product of products) {
-    const folder = await findImageDirectory(product.slug);
+    const folder = await findImageDirectory(product);
     const images = await listImages(folder);
     const { data: savedProduct, error: productError } = await client
       .from("products")
@@ -306,7 +311,7 @@ async function syncCatalog(products) {
           description: product.description,
           key_features: product.keyFeatures,
           price: product.price,
-          category: null,
+          category: product.category,
           availability: product.availability,
           active: true,
           featured: false,
@@ -348,7 +353,7 @@ async function syncCatalog(products) {
 
     const imageRows = [];
     for (const [index, image] of images.entries()) {
-      const storagePath = `products/${product.slug}/${image.fileName}`;
+      const storagePath = `products/${product.category}/${product.slug}/${image.fileName}`;
       const { error: uploadError } = await client.storage
         .from(bucketName)
         .upload(storagePath, image.bytes, {

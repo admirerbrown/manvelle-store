@@ -4,6 +4,16 @@ import {
 } from "./catalogue.service";
 import { formatGhs } from "../../lib/format-currency";
 
+function formatCategory(category: string | null): string {
+  if (!category) {
+    return "Collection";
+  }
+  return category
+    .split("/")
+    .map((part) => part.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()))
+    .join(" / ");
+}
+
 type ProductCardProps = {
   product: CatalogueProduct;
   onOpenProduct: (product: CatalogueProduct) => void;
@@ -52,7 +62,7 @@ export function ProductCard({ product, onOpenProduct }: ProductCardProps) {
           )}
         </span>
         <span className="product-card__category">
-          {product.category || "Collection"}
+          {formatCategory(product.category)}
         </span>
         <span className="product-card__title-row">
           <span className="product-card__name">{product.name}</span>

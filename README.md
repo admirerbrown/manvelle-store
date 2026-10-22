@@ -4,7 +4,7 @@ A local-first, mobile-first commerce storefront for Manvelle Menswear Ghana. The
 
 ## Project status
 
-The repository foundation, database schema, restrictive RLS policies, secure guest-order RPC, typed catalogue reads, cart, guest checkout, detailed order confirmation, click-to-WhatsApp handoff, and privacy-safe analytics foundation are in place on `development`. The local seed is explicitly synthetic and is not real Manvelle product, pricing, delivery, or customer data. Visual polish, full local end-to-end verification, and production setup remain. See [the project handoff](./docs/PROJECT-HANDOFF.md) for milestones and the current continuation point, and the [backend capabilities and catalogue guide](./docs/BACKEND-CAPABILITIES.md) for current backend features and product setup.
+The storefront, database schema, restrictive RLS policies, secure guest-order RPC, typed catalogue reads, category navigation, cart, guest checkout, detailed order confirmation, click-to-WhatsApp handoff, and privacy-safe analytics foundation are in place on `development`. The local seed is explicitly synthetic and is not real Manvelle product, pricing, delivery, or customer data. Full local end-to-end verification and production setup remain. See [the project handoff](./docs/PROJECT-HANDOFF.md) for milestones and the current continuation point, and the [backend capabilities and catalogue guide](./docs/BACKEND-CAPABILITIES.md) for current backend features and product setup.
 
 ## Technology
 
@@ -35,6 +35,8 @@ The Supabase example values are placeholders for local development. `VITE_WHATSA
 | `npm run build` | Type-check and create the static production build in `dist/` |
 | `npm run preview` | Preview the built site locally |
 | `npm run typecheck` | Run the TypeScript project checks |
+| `npm run catalog:validate` | Validate product data, categories, sizes, and image folders without database changes |
+| `npm run catalog:sync` | Import the spreadsheet and product images into Supabase using authorized catalog credentials |
 | `npm run db:start` | Start the local Supabase stack |
 | `npm run db:stop` | Stop the local Supabase stack |
 | `npm run db:status` | Show local Supabase service status |
@@ -53,6 +55,10 @@ supabase/
   migrations/            Versioned PostgreSQL schema and policy changes
   seed.sql               Local-only synthetic fixtures
   seed_assets/           Local-only synthetic product illustrations
+catalog/
+  category.json          Store category and subcategory definitions
+  products.csv           Product data, including assigned category keys
+  category/product folders  Product images matched by category path and slug
 docs/
   PROJECT-HANDOFF.md     Milestones, decisions, and continuation notes
 ```
@@ -67,9 +73,21 @@ For now, admins manage product and variant rows in the Supabase Dashboard using 
 
 The catalogue service reads only active products, variants, images, and delivery zones; database RLS independently enforces the same visibility boundary. Image paths beginning with `local-fixtures/` resolve to `supabase/seed_assets/` in the Vite development server. Other image paths resolve through the public `product-images` Supabase Storage bucket.
 
+### Storefront catalogue experience
+
+The main navigation includes a category menu with hover and keyboard-focus
+dropdowns for every category and subcategory defined in
+`catalog/category.json`. Selecting a category opens its full filtered catalogue.
+The home page presents Trending items, New arrivals, and a default category
+section. Trending uses products marked `featured`; New arrivals currently uses
+the first eligible products returned by the catalogue. Both sections preserve
+the standard product cards and display them in horizontal carousels. The
+default category shows the first few products, and its View more action opens
+the full category listing.
+
 ### Managing the product spreadsheet
 
-Edit [catalog/products.csv](./catalog/products.csv) in a spreadsheet editor. Keep its columns as `name`, `description`, `key_features`, `available_sizes`, `availability`, and `price`. Separate sizes with `|`; availability is `in-stock` or `out-of-stock`. Product slugs are generated from names. Put product photos in a folder named after that slug under `catalog/`; existing folder-name exceptions are handled for the initial products. The spreadsheet and image folders are the source for product details, size options, product availability, and storefront images.
+Edit [catalog/products.csv](./catalog/products.csv) in a spreadsheet editor. Keep its columns as `name`, `description`, `key_features`, `available_sizes`, `availability`, `price`, and `category`. Assign each product a valid category key from [catalog/category.json](./catalog/category.json), using `parent/child` for subcategories such as `pants/office`. Separate sizes with `|`; availability is `in-stock` or `out-of-stock`. Product slugs are generated from names. Put product photos in `catalog/<category>/<product-slug>/`, for example `catalog/pants/casual/cargo-pants/`; the importer matches category paths and supports the existing `khakie` and `beltless-trouser` folder aliases. The spreadsheet and image folders are the source for product details, size options, product availability, and storefront images.
 Image file names identify color choices on each product page. Customers choose
 a color image and size before adding that combination to their bag; the
 WhatsApp order message includes the chosen image's public URL.
