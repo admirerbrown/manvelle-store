@@ -373,21 +373,44 @@ export function CheckoutForm({
               const variant = product?.variants.find(
                 (candidate) => candidate.id === item.variantId,
               );
+              const colorImage =
+                product && item.imageId
+                  ? product.images.find((image) => image.id === item.imageId)
+                  : undefined;
+              const thumb = colorImage ?? product?.images[0];
+              const meta = [
+                `Size ${variant?.size ?? "-"}`,
+                `Qty ${item.quantity}`,
+                colorImage?.colorName,
+              ]
+                .filter(Boolean)
+                .join(" · ");
 
               return (
                 <li key={getCartLineKey(item)}>
-                  <span>
-                    {product?.name ?? "Product"} -{" "}
-                    {variant?.size ?? "Size"} x{" "}
-                    {item.quantity}
-                    {product &&
-                      item.imageId &&
-                      ` - ${
-                        product.images.find(
-                          (image) => image.id === item.imageId,
-                        )?.colorName ?? "Color"
-                      }`}
-                  </span>
+                  {thumb && (
+                    <img
+                      className="checkout-summary__thumb"
+                      src={thumb.url}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      onError={(event) => {
+                        if (
+                          thumb.fallbackUrl &&
+                          !event.currentTarget.src.endsWith(thumb.fallbackUrl)
+                        ) {
+                          event.currentTarget.src = thumb.fallbackUrl;
+                        }
+                      }}
+                    />
+                  )}
+                  <div className="checkout-summary__info">
+                    <p className="checkout-summary__name">
+                      {product?.name ?? "Product"}
+                    </p>
+                    <p className="checkout-summary__meta">{meta}</p>
+                  </div>
                   <strong>
                     {product
                       ? formatGhs(product.price * item.quantity)
@@ -399,15 +422,15 @@ export function CheckoutForm({
           </ul>
           <dl className="checkout-summary__totals">
             <div>
-              <dt>Subtotal estimate</dt>
+              <dt>Subtotal</dt>
               <dd>{formatGhs(subtotal)}</dd>
             </div>
             <div>
               <dt>Delivery</dt>
-              <dd>To be confirmed on WhatsApp</dd>
+              <dd>Confirmed on WhatsApp</dd>
             </div>
             <div className="checkout-summary__grand-total">
-              <dt>Subtotal</dt>
+              <dt>Total before delivery</dt>
               <dd>{formatGhs(subtotal)}</dd>
             </div>
           </dl>
