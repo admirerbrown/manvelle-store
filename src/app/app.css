@@ -4070,3 +4070,53 @@ body {
     transform: translate(0, 0);
   }
 }
+
+/* ---- Routing: links that replaced buttons keep the look of the buttons ---- */
+a.product-card__link {
+  text-decoration: none;
+}
+
+a.text-button {
+  display: inline-flex;
+  align-items: center;
+}
+
+.error-panel a.button {
+  margin-top: 0.75rem;
+}
+
+.store-nav__menu a {
+  display: block;
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  background: transparent;
+  color: var(--theme-ink);
+  font-size: 0.72rem;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-align: left;
+  text-decoration: none;
+  text-transform: none;
+}
+
+.store-nav__menu-group > a {
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.store-nav__menu a:hover,
+.store-nav__menu a:focus-visible {
+  background: var(--theme-soft);
+  color: var(--accent-ink);
+  outline: 0;
+}
+
+.store-nav__submenu a {
+  color: var(--theme-muted);
+  font-size: 0.68rem;
+}
+
+.store-nav__submenu a:hover,
+.store-nav__submenu a:focus-visible {
+  color: var(--accent-ink);
+}

@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { getCategoryLabel, paths, resolveRoute } from "./routes";
+import type { StorefrontPage } from "../features/analytics/analytics.service";
 import {
   getCatalogueProducts,
   getLocalProductImageUrl,
@@ -20,7 +23,6 @@ import type { GuestOrderConfirmation } from "../features/checkout/checkout.servi
 import { formatGhs } from "../lib/format-currency";
 import categoryData from "../../catalog/category.json";
 
-type View = "shop" | "bag" | "checkout" | "confirmation";
 const minimumProductVariantCount = 4;
 
 function categoryContainsProduct(categoryId: string, productCategory: string | null) {
@@ -31,10 +33,13 @@ export function App() {
   const [products, setProducts] = useState<CatalogueProduct[]>([]);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [confirmationCart, setConfirmationCart] = useState<CartLine[]>([]);
-  const [view, setView] = useState<View>("shop");
-  const [selectedProductSlug, setSelectedProductSlug] = useState<string | null>(
-    null,
-  );
+  const location = useLocation();
+  const navigate = useNavigate();
+  const route = resolveRoute(location.pathname);
+  const selectedCategory = route.name === "collection" ? route.categoryId : null;
+  // Last home/collection page the shopper was on, so "Back" and "Continue
+  // shopping" return them to the list they came from.
+  const listingPath = useRef<string | null>(null);
   const [confirmation, setConfirmation] =
     useState<GuestOrderConfirmation | null>(null);
   const [selectedVariantIds, setSelectedVariantIds] = useState<
@@ -45,21 +50,31 @@ export function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [heroIndex, setHeroIndex] = useState(0);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const trendingCarouselRef = useRef<HTMLDivElement>(null);
   const newArrivalsCarouselRef = useRef<HTMLDivElement>(null);
-  const lastTrackedPage = useRef<View | null>(null);
+  const lastTrackedPage = useRef<StorefrontPage | null>(null);
+  const handledHash = useRef("");
+
+  const trackedPage: StorefrontPage | null =
+    route.name === "checkout" || route.name === "confirmation"
+      ? route.name
+      : route.name === "not-found" || route.name === "collection-index"
+        ? null
+        : "shop";
 
   useEffect(() => {
-    if (lastTrackedPage.current === view) {
+    if (route.name === "home" || route.name === "collection") {
+      listingPath.current = location.pathname;
+    }
+  }, [route.name, location.pathname]);
+
+  useEffect(() => {
+    if (trackedPage === null || lastTrackedPage.current === trackedPage) {
       return;
     }
-    lastTrackedPage.current = view;
-    trackStorefrontEvent({
-      name: "page_view",
-      page: view === "bag" ? "shop" : view,
-    });
-  }, [view]);
+    lastTrackedPage.current = trackedPage;
+    trackStorefrontEvent({ name: "page_view", page: trackedPage });
+  }, [trackedPage]);
 
   useEffect(() => {
     let isCurrent = true;
@@ -92,9 +107,29 @@ export function App() {
     };
   }, [refreshVersion]);
 
+  // New page -> start at the top.
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "auto" });
-  }, [view, selectedProductSlug]);
+    if (!location.hash) {
+      window.scrollTo({ top: 0, behavior: "auto" });
+    }
+  }, [location.pathname]);
+
+  // "/#new-arrivals" -> scroll to that section once it has rendered.
+  useEffect(() => {
+    if (!location.hash) {
+      handledHash.current = "";
+      return;
+    }
+    const hashKey = `${location.key}${location.hash}`;
+    if (handledHash.current === hashKey) {
+      return;
+    }
+    const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+    if (target) {
+      handledHash.current = hashKey;
+      target.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [location.key, location.hash, isLoading, route.name]);
 
   useEffect(() => {
     if (!cartMessage) {
@@ -155,19 +190,28 @@ export function App() {
     [productsWithEnoughSizes],
   );
   const activeHeroProduct = heroProducts[heroIndex % Math.max(heroProducts.length, 1)];
-  const selectedProduct = products.find(
-    (product) => product.slug === selectedProductSlug,
-  );
+  const selectedProduct =
+    route.name === "product"
+      ? products.find((product) => product.slug === route.slug)
+      : undefined;
+  const selectedProductId = selectedProduct?.id;
+
+  // Fires for in-app clicks and for direct visits / refreshes of /products/<slug>.
+  useEffect(() => {
+    if (selectedProductId) {
+      trackStorefrontEvent({ name: "product_view", productId: selectedProductId });
+    }
+  }, [selectedProductId]);
 
   useEffect(() => {
-    if (view !== "shop" || selectedProductSlug || heroProducts.length < 2) {
+    if (route.name !== "home" || heroProducts.length < 2) {
       return;
     }
     const intervalId = window.setInterval(() => {
       setHeroIndex((currentIndex) => (currentIndex + 1) % heroProducts.length);
     }, 5000);
     return () => window.clearInterval(intervalId);
-  }, [heroProducts.length, selectedProductSlug, view]);
+  }, [heroProducts.length, route.name]);
 
   const cartItems: CartItemView[] = useMemo(
     () =>
@@ -328,74 +372,40 @@ export function App() {
     setConfirmationCart(submittedItems);
     setCart([]);
     setCartMessage(null);
-    setSelectedProductSlug(null);
-    setView("confirmation");
+    navigate(paths.confirmation, { replace: true });
   }
 
   function continueShopping() {
     setConfirmation(null);
     setConfirmationCart([]);
-    setSelectedProductSlug(null);
-    setView("shop");
+    navigate(paths.home, { replace: true });
   }
 
   useEffect(() => {
-    if (view !== "confirmation" || !confirmation) {
+    if (route.name !== "confirmation" || !confirmation) {
       return;
     }
     const timeoutId = window.setTimeout(continueShopping, 5000);
     return () => window.clearTimeout(timeoutId);
-  }, [view, confirmation]);
+  }, [route.name, confirmation]);
 
   function handleProceedToCheckout() {
     if (!canProceedToCheckout) {
       return;
     }
     trackStorefrontEvent({ name: "checkout_started" });
-    setSelectedProductSlug(null);
-    setView("checkout");
+    navigate(paths.checkout);
   }
 
-  function handleOpenProduct(product: CatalogueProduct) {
-    setSelectedProductSlug(product.slug);
-    const firstAvailableVariant = product.variants.find((variant) =>
-      isVariantInStock(product, variant),
-    );
-    setSelectedVariantIds((current) => ({
-      ...current,
-      [product.id]: current[product.id] ?? firstAvailableVariant?.id ?? "",
-    }));
-    trackStorefrontEvent({ name: "product_view", productId: product.id });
-  }
-
-  function handleHeaderBagClick() {
-    setSelectedProductSlug(null);
-    setView("bag");
-  }
-
-  function handleCategorySelect(categoryId: string) {
-    setSelectedProductSlug(null);
-    setSelectedCategory(categoryId);
-    setView("shop");
-    window.setTimeout(() => {
-      document.getElementById("collection")?.scrollIntoView({ behavior: "smooth" });
-    }, 0);
-  }
-
-  function handleHomeSectionNavigation(sectionId: string) {
-    setSelectedProductSlug(null);
-    setSelectedCategory(null);
-    setView("shop");
-    window.setTimeout(() => {
-      document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth" });
-    }, 0);
+  function goBackToShopping() {
+    navigate(listingPath.current ?? paths.home);
   }
 
   function renderProductGrid(items: CatalogueProduct[]) {
     return (
       <div className="product-grid">
         {items.map((product) => (
-          <ProductCard key={product.id} product={product} onOpenProduct={handleOpenProduct} />
+          <ProductCard key={product.id} product={product} />
         ))}
       </div>
     );
@@ -418,7 +428,7 @@ export function App() {
         <div className="product-carousel__viewport" ref={carouselRef}>
           <div className="product-grid product-grid--carousel">
             {items.map((product) => (
-              <ProductCard key={product.id} product={product} onOpenProduct={handleOpenProduct} />
+              <ProductCard key={product.id} product={product} />
             ))}
           </div>
         </div>
@@ -442,7 +452,16 @@ export function App() {
           <span className="store-brand__caption">Menswear Ghana</span>
         </div>
         <nav className="store-nav" aria-label="Main navigation">
-          <a href="#collection" onClick={() => handleHomeSectionNavigation("collection")}>Home</a>
+          <Link
+            to={paths.home}
+            onClick={() => {
+              if (route.name === "home") {
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }
+            }}
+          >
+            Home
+          </Link>
           <div className="store-nav__dropdown">
             <button className="store-nav__trigger" type="button">
               Categories <span aria-hidden="true">⌄</span>
@@ -450,19 +469,16 @@ export function App() {
             <div className="store-nav__menu">
               {categoryData.categories.map((category) => (
                 <div className="store-nav__menu-group" key={category.id}>
-                  <button type="button" onClick={() => handleCategorySelect(category.id)}>
-                    {category.name}
-                  </button>
+                  <Link to={paths.collection(category.id)}>{category.name}</Link>
                   {category.subcategories.length > 0 && (
                     <div className="store-nav__submenu">
                       {category.subcategories.map((subcategory) => (
-                        <button
+                        <Link
                           key={`${category.id}/${subcategory.id}`}
-                          type="button"
-                          onClick={() => handleCategorySelect(`${category.id}/${subcategory.id}`)}
+                          to={paths.collection(`${category.id}/${subcategory.id}`)}
                         >
                           {subcategory.name}
-                        </button>
+                        </Link>
                       ))}
                     </div>
                   )}
@@ -470,13 +486,13 @@ export function App() {
               ))}
             </div>
           </div>
-          <a href="#new-arrivals" onClick={() => handleHomeSectionNavigation("new-arrivals")}>New arrivals</a>
+          <Link to={{ pathname: paths.home, hash: "new-arrivals" }}>New arrivals</Link>
         </nav>
         <button
           className="bag-link"
           type="button"
-          disabled={view === "checkout"}
-          onClick={handleHeaderBagClick}
+          disabled={route.name === "checkout"}
+          onClick={() => navigate(paths.bag)}
           aria-label={`Your bag, ${cartQuantity} ${
             cartQuantity === 1 ? "item" : "items"
           }`}
@@ -486,7 +502,7 @@ export function App() {
       </header>
 
       <main>
-        {view === "shop" && selectedProduct && (
+        {route.name === "product" && selectedProduct && (
           <ProductPage
             product={selectedProduct}
             selectedVariantId={
@@ -505,13 +521,49 @@ export function App() {
             canProceedToCheckout={canProceedToCheckout}
             onAddToCart={handleAddToCart}
             onProceedToCheckout={handleProceedToCheckout}
-            onBack={() => setSelectedProductSlug(null)}
+            onBack={() =>
+              navigate(
+                listingPath.current ??
+                  (selectedProduct.category
+                    ? paths.collection(selectedProduct.category)
+                    : paths.home),
+              )
+            }
             cartMessage={cartMessage}
           />
         )}
 
-        {view === "shop" && !selectedProduct && (
+        {route.name === "product" && !selectedProduct && isLoading && (
+          <p className="status-message" role="status">
+            Loading the product...
+          </p>
+        )}
+
+        {route.name === "product" && !selectedProduct && !isLoading && (
+          <div className="error-panel" role="alert">
+            <p>
+              {catalogueError ??
+                "We could not find that product. It may have been removed."}
+            </p>
+            {catalogueError ? (
+              <button
+                className="button button--secondary"
+                type="button"
+                onClick={() => setRefreshVersion((version) => version + 1)}
+              >
+                Try again
+              </button>
+            ) : (
+              <Link className="button button--secondary" to={paths.home}>
+                Back to the collection
+              </Link>
+            )}
+          </div>
+        )}
+
+        {(route.name === "home" || route.name === "collection") && (
           <>
+            {route.name === "home" && (
             <section className="hero">
               <div className="hero__copy">
                 <p className="eyebrow">Manvelle / New collection</p>
@@ -520,7 +572,7 @@ export function App() {
                   Refined everyday menswear, made for the streets of Accra.
                   Discover your next favourite fit.
                 </p>
-                <a className="hero__cta" href="#collection">Shop the collection <span>↗</span></a>
+                <Link className="hero__cta" to={{ pathname: paths.home, hash: "collection" }}>Shop the collection <span>↗</span></Link>
                 <div className="hero__scan">
                   <span className="hero__qr" aria-hidden="true">
                     <i /><i /><i /><i /><i /><i /><i /><i /><i />
@@ -542,6 +594,7 @@ export function App() {
                 <div className="hero__offer">10%<small>OFF</small></div>
               </div>
             </section>
+            )}
 
             <section
               className="catalogue-section"
@@ -553,7 +606,7 @@ export function App() {
                   <p className="eyebrow">The collection</p>
                   <h2 id="catalogue-heading">
                     {selectedCategory
-                      ? selectedCategory.split("/").at(-1)?.replace(/-/g, " ")
+                      ? getCategoryLabel(selectedCategory)
                       : "Shop the collection"}
                   </h2>
                 </div>
@@ -644,9 +697,9 @@ export function App() {
                           <p className="eyebrow">Shop by category</p>
                           <h2 id="default-category-heading">{defaultCategory.name}</h2>
                         </div>
-                        <button className="text-button" type="button" onClick={() => handleCategorySelect(defaultCategory.id)}>
+                        <Link className="text-button" to={paths.collection(defaultCategory.id)}>
                           View more ↗
-                        </button>
+                        </Link>
                       </div>
                       {renderProductGrid(defaultCategoryProducts)}
                     </section>
@@ -661,12 +714,12 @@ export function App() {
           </>
         )}
 
-        {view === "bag" && (
+        {route.name === "bag" && (
           <>
             <button
               className="text-button bag-page__back"
               type="button"
-              onClick={() => setView("shop")}
+              onClick={goBackToShopping}
             >
               &lt;- Continue shopping
             </button>
@@ -682,20 +735,42 @@ export function App() {
           </>
         )}
 
-        {view === "checkout" && cartSubtotal !== null && (
-          <CheckoutForm
-            cart={cart}
-            products={productsById}
-            subtotal={cartSubtotal}
-            onBack={() => {
-              setSelectedProductSlug(null);
-              setView("shop");
-            }}
-            onOrderCreated={handleOrderCreated}
-          />
+        {route.name === "checkout" &&
+          (cartSubtotal !== null && cart.length > 0 ? (
+            <CheckoutForm
+              cart={cart}
+              products={productsById}
+              subtotal={cartSubtotal}
+              onBack={goBackToShopping}
+              onOrderCreated={handleOrderCreated}
+            />
+          ) : confirmation ? null : isLoading ? (
+            <p className="status-message" role="status">
+              Loading your order...
+            </p>
+          ) : (
+            // Nothing to check out (e.g. the page was refreshed or opened directly).
+            <Navigate to={paths.bag} replace />
+          ))}
+
+        {route.name === "confirmation" && !confirmation && (
+          <Navigate to={paths.home} replace />
         )}
 
-        {view === "confirmation" && confirmation && (
+        {route.name === "collection-index" && (
+          <Navigate to={paths.home} replace />
+        )}
+
+        {route.name === "not-found" && (
+          <section className="error-panel" role="alert">
+            <p>We could not find that page.</p>
+            <Link className="button button--secondary" to={paths.home}>
+              Back to the collection
+            </Link>
+          </section>
+        )}
+
+        {route.name === "confirmation" && confirmation && (
           <section className="confirmation" aria-labelledby="confirmation-title">
             <p className="eyebrow">Order received</p>
             <h1 id="confirmation-title">Thank you for your order.</h1>

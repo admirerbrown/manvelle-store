@@ -119,3 +119,19 @@ Analytics events are automatically purged daily at 03:00 UTC when older than 12 
 ## Specifications
 
 The detailed requirements are in [`manvelle-spec1`](./manvelle-spec1) and [`mavelle-spec2`](./mavelle-spec2). These user-provided, untracked files are intentionally preserved.
+
+## Routes
+
+All URLs are defined in `src/app/routes.ts`.
+
+| URL | Page |
+| --- | --- |
+| `/` | Home (hero, trending, new arrivals) |
+| `/collections/<category>` | Category, e.g. `/collections/pants` |
+| `/collections/<category>/<subcategory>` | Subcategory, e.g. `/collections/pants/office` |
+| `/products/<slug>` | Product page, e.g. `/products/cargo-pants` |
+| `/bag`, `/checkout`, `/order-confirmation` | Bag, checkout, confirmation |
+
+Category ids come from `catalog/category.json`. Because these are real URLs, the production host
+must serve `index.html` for any path (an SPA fallback). `npm run dev` and `npm run preview` already do;
+on Netlify add `/* /index.html 200` to `public/_redirects`, on Vercel add a rewrite to `/index.html`.

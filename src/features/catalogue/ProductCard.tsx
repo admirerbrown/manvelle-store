@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+import { paths } from "../../app/routes";
 import {
   getLocalProductImageUrl,
   type CatalogueProduct,
@@ -16,20 +18,19 @@ function formatCategory(category: string | null): string {
 
 type ProductCardProps = {
   product: CatalogueProduct;
-  onOpenProduct: (product: CatalogueProduct) => void;
 };
 
-export function ProductCard({ product, onOpenProduct }: ProductCardProps) {
+export function ProductCard({ product }: ProductCardProps) {
   const firstImage = product.images[0];
-  const localFallbackImage = getLocalProductImageUrl(product.slug);
-  const imageSrc = firstImage?.url ?? localFallbackImage;
+  const localFallbackImage = getLocalProductImageUrl(product.slug, product.category);
+  const localImage = firstImage?.fallbackUrl ?? localFallbackImage;
+  const imageSrc = localImage ?? firstImage?.url;
 
   return (
     <article className="product-card">
-      <button
+      <Link
         className="product-card__link"
-        type="button"
-        onClick={() => onOpenProduct(product)}
+        to={paths.product(product.slug)}
         aria-label={`View ${product.name}, ${formatGhs(product.price)}`}
       >
         <span className="product-card__image-wrap">
@@ -37,7 +38,7 @@ export function ProductCard({ product, onOpenProduct }: ProductCardProps) {
             <img
               className="product-card__image"
               src={imageSrc}
-              srcSet={firstImage?.srcSet}
+              srcSet={imageSrc === localImage ? undefined : firstImage?.srcSet}
               sizes="(max-width: 560px) 50vw, (max-width: 980px) 25vw, 20vw"
               alt={firstImage?.alt_text || product.name}
               loading="lazy"
@@ -77,13 +78,13 @@ export function ProductCard({ product, onOpenProduct }: ProductCardProps) {
               <span
                 className="product-card__swatch"
                 key={image.id}
-                style={{ backgroundImage: `url(${image.url})` }}
+                style={{ backgroundImage: `url(${image.fallbackUrl ?? image.url})` }}
                 aria-hidden="true"
               />
             ))}
           </span>
         </span>
-      </button>
+      </Link>
     </article>
   );
 }
