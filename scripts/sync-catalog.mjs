@@ -2,16 +2,13 @@ import { createClient } from "@supabase/supabase-js";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { matchProductFolder } from "../src/lib/catalog-folder.js";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const catalogPath = path.join(projectRoot, "catalog", "products.csv");
 const categoryPath = path.join(projectRoot, "catalog", "category.json");
 const imageRoot = path.join(projectRoot, "catalog");
 const bucketName = "product-images";
-const imageDirectoryAliases = new Map([
-  ["khakie-trousers", "khakie"],
-  ["beltless-material-trousers", "beltless-trouser"],
-]);
 
 function fail(message) {
   throw new Error(message);
@@ -150,18 +147,30 @@ function parseProducts(csv) {
   });
 }
 
-async function findImageDirectory(product) {
-  const expectedName = imageDirectoryAliases.get(product.slug) ?? product.slug;
-  const categoryParts = product.category.split("/");
-  const directory = path.join(imageRoot, ...categoryParts, expectedName);
+async function listFolders(directory) {
   try {
-    await readdir(directory);
+    const entries = await readdir(directory, { withFileTypes: true });
+    return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
   } catch {
+    return [];
+  }
+}
+
+// catalog/<category>/<subcategory>/<product-folder>/ — the folder is found with the
+// same rule the storefront uses (src/lib/catalog-folder.js), so the site and the
+// Supabase Storage upload always read the same directory.
+async function findImageDirectory(product) {
+  const categoryDirectory = path.join(imageRoot, ...product.category.split("/"));
+  const folderName = matchProductFolder(product.slug, await listFolders(categoryDirectory));
+  if (!folderName) {
     fail(
-      `Expected image folder ${path.relative(projectRoot, directory)} for ${product.name}.`,
+      `No image folder found for ${product.name}. Expected ` +
+        `${path.relative(projectRoot, path.join(categoryDirectory, product.slug))}/ ` +
+        `(or a folder using the same words, e.g. ${product.slug.split("-")[0]}-...) ` +
+        `containing one image per colour.`,
     );
   }
-  return directory;
+  return { directory: path.join(categoryDirectory, folderName), folderName };
 }
 
 async function getImageInfo(filePath, folder) {
@@ -250,13 +259,35 @@ async function validateCatalog(products) {
     if (!categoryIds.has(product.category)) {
       fail(`The category "${product.category}" for ${product.name} is not defined in catalog/category.json.`);
     }
-    const folder = await findImageDirectory(product);
-    const images = await listImages(folder);
+    const { directory } = await findImageDirectory(product);
+    const images = await listImages(directory);
     console.log(
       `${product.name}: ${product.sizes.length} sizes, ${product.availability}, ` +
         `${images.length} images, ${product.category} ` +
-        `(${path.relative(projectRoot, folder)})`,
+        `(${path.relative(projectRoot, directory)})`,
     );
+    console.log(`  colours: ${images.map((image) => path.parse(image.fileName).name).join(", ")}`);
+  }
+  await warnAboutUnclaimedFolders(products);
+}
+
+// A folder that no product row points at would silently show nothing on the site.
+async function warnAboutUnclaimedFolders(products) {
+  const claimed = new Set();
+  for (const product of products) {
+    const { directory } = await findImageDirectory(product);
+    claimed.add(path.resolve(directory));
+  }
+  for (const categoryId of await loadCategoryIds()) {
+    const categoryDirectory = path.join(imageRoot, ...categoryId.split("/"));
+    for (const folder of await listFolders(categoryDirectory)) {
+      const directory = path.resolve(categoryDirectory, folder);
+      if (!claimed.has(directory) && !(await listFolders(directory)).length) {
+        console.warn(
+          `Warning: ${path.relative(projectRoot, directory)} has no matching row in catalog/products.csv.`,
+        );
+      }
+    }
   }
 }
 
@@ -300,8 +331,8 @@ async function syncCatalog(products) {
   }
 
   for (const product of products) {
-    const folder = await findImageDirectory(product);
-    const images = await listImages(folder);
+    const { directory, folderName } = await findImageDirectory(product);
+    const images = await listImages(directory);
     const { data: savedProduct, error: productError } = await client
       .from("products")
       .upsert(
@@ -353,7 +384,9 @@ async function syncCatalog(products) {
 
     const imageRows = [];
     for (const [index, image] of images.entries()) {
-      const storagePath = `products/${product.category}/${product.slug}/${image.fileName}`;
+      // Storage mirrors the catalog directory exactly:
+      // products/<category>/<product-folder>/<colour>.jpeg
+      const storagePath = `products/${product.category}/${folderName}/${image.fileName}`;
       const { error: uploadError } = await client.storage
         .from(bucketName)
         .upload(storagePath, image.bytes, {

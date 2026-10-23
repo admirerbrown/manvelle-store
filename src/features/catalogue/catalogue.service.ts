@@ -1,5 +1,9 @@
 import type { Database } from "../../lib/supabase/database.types";
 import { getSupabaseClient } from "../../lib/supabase/client";
+import { colourNameFromFile } from "../../lib/catalog-folder";
+import { getLocalCatalogImages } from "./catalog-images";
+
+export { getLocalProductImageUrl } from "./catalog-images";
 
 type ProductRow = Database["public"]["Tables"]["products"]["Row"];
 type ProductVariantRow =
@@ -39,10 +43,6 @@ export type CatalogueProduct = Pick<
 
 const productImageBucket = "product-images";
 const localFixturePrefix = "local-fixtures/";
-const localCatalogAssets = import.meta.glob<string>(
-  "/catalog/**/*.{jpeg,jpg,png,webp}",
-  { eager: true, query: "?url", import: "default" },
-);
 
 type ProductFilters = {
   featuredOnly?: boolean;
@@ -121,25 +121,57 @@ async function loadProducts({
     variantsByProduct.set(variant.product_id, variants);
   }
 
-  const imagesByProduct = new Map<string, CatalogueImage[]>();
+  // Remote (database) image rows grouped by product. They are only used for a
+  // product that has no folder under /catalog (e.g. the local-fixtures seed).
+  const remoteImagesByProduct = new Map<string, CatalogueImage[]>();
   for (const image of imagesResult.data) {
-    const images = imagesByProduct.get(image.product_id) ?? [];
+    const images = remoteImagesByProduct.get(image.product_id) ?? [];
     images.push({
       id: image.id,
       alt_text: image.alt_text,
       sortOrder: image.sort_order,
-      url: getProductImageUrl(image.storage_path),
-      srcSet: getProductImageSrcSet(image.storage_path),
-      fallbackUrl: getLocalCatalogImageUrl(image.storage_path),
-      colorName: getImageName(image.storage_path),
+      url: getRemoteProductImageUrl(image.storage_path),
+      srcSet: getRemoteProductImageSrcSet(image.storage_path),
+      fallbackUrl: null,
+      colorName: colourNameFromFile(image.storage_path),
     });
-    imagesByProduct.set(image.product_id, images);
+    remoteImagesByProduct.set(image.product_id, images);
   }
 
   return products.map((product) => ({
     ...product,
     variants: variantsByProduct.get(product.id) ?? [],
-    images: imagesByProduct.get(product.id) ?? [],
+    images: getProductImages(
+      product,
+      remoteImagesByProduct.get(product.id) ?? [],
+    ),
+  }));
+}
+
+/**
+ * The catalogue folder is the source of truth for a product's photos:
+ *   catalog/<category>/<subcategory>/<product-folder>/<colour>.jpeg
+ * Every file in that folder becomes one colour option for that product, and no
+ * file from another product's folder can appear here. Database image rows are
+ * not consulted for products that have a folder, so stale, incomplete or
+ * mis-mapped rows cannot hide a colour or break an image.
+ */
+function getProductImages(
+  product: Pick<CatalogueProduct, "name" | "slug" | "category">,
+  remoteImages: CatalogueImage[],
+): CatalogueImage[] {
+  const localImages = getLocalCatalogImages(product.slug, product.category);
+  if (localImages.length === 0) {
+    return remoteImages;
+  }
+  return localImages.map((image, index) => ({
+    id: `local:${image.id}`,
+    alt_text: `${product.name} - ${image.colorName.toLowerCase()}`,
+    sortOrder: index * 10,
+    url: image.url,
+    srcSet: image.url,
+    fallbackUrl: image.url,
+    colorName: image.colorName,
   }));
 }
 
@@ -166,7 +198,7 @@ export async function getCatalogueProductBySlug(
   return products[0] ?? null;
 }
 
-function getProductImageUrl(storagePath: string): string {
+function getRemoteProductImageUrl(storagePath: string): string {
   if (storagePath.startsWith(localFixturePrefix)) {
     const fixturePath = storagePath.slice(localFixturePrefix.length);
     const segments = fixturePath.split("/");
@@ -186,9 +218,9 @@ function getProductImageUrl(storagePath: string): string {
     .getPublicUrl(storagePath).data.publicUrl;
 }
 
-function getProductImageSrcSet(storagePath: string): string {
+function getRemoteProductImageSrcSet(storagePath: string): string {
   if (storagePath.startsWith(localFixturePrefix)) {
-    return getProductImageUrl(storagePath);
+    return getRemoteProductImageUrl(storagePath);
   }
 
   const storage = getSupabaseClient().storage.from(productImageBucket);
@@ -204,73 +236,4 @@ function getProductImageSrcSet(storagePath: string): string {
       return `${url} ${width}w`;
     })
     .join(", ");
-}
-
-export function getLocalCatalogImageUrl(storagePath: string): string | null {
-  const segments = storagePath.split("/");
-  if (segments[0] !== "products") {
-    return null;
-  }
-
-  if (segments.length >= 4) {
-    const slug = segments.at(-2);
-    const fileName = segments.at(-1);
-    const categoryPath = segments.slice(1, -2);
-    if (slug && fileName) {
-      const categoryAsset = findLocalCatalogAsset(
-        [...categoryPath, slug].join("/"),
-        fileName,
-      );
-      if (categoryAsset) {
-        return categoryAsset;
-      }
-    }
-  }
-
-  // Keep resolving older storage rows created before category folders were introduced.
-  const legacyMatch = storagePath.match(/^products\/([^/]+)\/([^/]+)$/);
-  if (!legacyMatch) {
-    return null;
-  }
-  const legacySlug = legacyMatch[1] ?? "";
-  const legacyFileName = legacyMatch[2] ?? "";
-  const nestedLegacyAsset = findLocalCatalogAsset(legacySlug, legacyFileName);
-  if (nestedLegacyAsset) {
-    return nestedLegacyAsset;
-  }
-  const catalogFolder =
-    legacySlug === "khakie-trousers"
-      ? "khakie"
-      : legacySlug === "beltless-material-trousers"
-        ? "beltless-trouser"
-        : legacySlug;
-  return findLocalCatalogAsset(catalogFolder, legacyFileName);
-}
-
-// Local images live under nested folders (for example
-// /catalog/pants/cargo-pants/cargo-tra2.jpeg), so match on the trailing
-// "<folder>/<file>" instead of assuming a flat /catalog/<folder>/ layout.
-function findLocalCatalogAsset(folder: string, fileName: string): string | null {
-  const exact = localCatalogAssets[`/catalog/${folder}/${fileName}`];
-  if (exact) {
-    return exact;
-  }
-  const suffix = `/${folder}/${fileName}`;
-  const key = Object.keys(localCatalogAssets).find((assetPath) =>
-    assetPath.endsWith(suffix),
-  );
-  return key ? (localCatalogAssets[key] ?? null) : null;
-}
-
-export function getLocalProductImageUrl(slug: string): string | null {
-  const assetPath = Object.keys(localCatalogAssets).find((path) =>
-    path.includes(`/${slug}/`),
-  );
-  return assetPath ? (localCatalogAssets[assetPath] ?? null) : null;
-}
-
-function getImageName(storagePath: string): string {
-  const fileName = storagePath.split("/").at(-1) ?? storagePath;
-  const name = fileName.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim();
-  return name.replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
 }
