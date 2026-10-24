@@ -1,15 +1,23 @@
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { getCategoryLabel, paths, resolveRoute } from "./routes";
 import type { StorefrontPage } from "../features/analytics/analytics.service";
 import {
   getCatalogueProducts,
-  getLocalProductImageUrl,
   isVariantInStock,
   type CatalogueImage,
   type CatalogueProduct,
   type CatalogueVariant,
 } from "../features/catalogue/catalogue.service";
+import { BenefitsStrip } from "../features/home/BenefitsStrip";
+import { CategoryTiles } from "../features/home/CategoryTiles";
+import { HeroCarousel } from "../features/home/HeroCarousel";
+import {
+  categoryContainsProduct,
+  getCollectionHeroSlide,
+  getHomeHeroSlides,
+  getLiveCategories,
+} from "../features/home/categories";
 import { ProductCard } from "../features/catalogue/ProductCard";
 import { ProductPage } from "../features/catalogue/ProductPage";
 import { trackStorefrontEvent } from "../features/analytics/analytics.service";
@@ -24,10 +32,6 @@ import { formatGhs } from "../lib/format-currency";
 import categoryData from "../../catalog/category.json";
 
 const minimumProductVariantCount = 4;
-
-function categoryContainsProduct(categoryId: string, productCategory: string | null) {
-  return productCategory === categoryId || productCategory?.startsWith(`${categoryId}/`) === true;
-}
 
 export function App() {
   const [products, setProducts] = useState<CatalogueProduct[]>([]);
@@ -49,9 +53,6 @@ export function App() {
   const [catalogueError, setCatalogueError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshVersion, setRefreshVersion] = useState(0);
-  const [heroIndex, setHeroIndex] = useState(0);
-  const trendingCarouselRef = useRef<HTMLDivElement>(null);
-  const newArrivalsCarouselRef = useRef<HTMLDivElement>(null);
   const lastTrackedPage = useRef<StorefrontPage | null>(null);
   const handledHash = useRef("");
 
@@ -159,37 +160,18 @@ export function App() {
           ),
     [productsWithEnoughSizes, selectedCategory],
   );
-  const trendingProducts = useMemo(
-    () => productsWithEnoughSizes.filter((product) => product.featured).slice(0, 4),
+  const liveCategories = useMemo(
+    () => getLiveCategories(productsWithEnoughSizes),
     [productsWithEnoughSizes],
   );
-  const newArrivalProducts = useMemo(
-    () => productsWithEnoughSizes.slice(0, 4),
-    [productsWithEnoughSizes],
-  );
-  const defaultCategory = useMemo(
-    () =>
-      categoryData.categories.find((category) =>
-        productsWithEnoughSizes.some((product) =>
-          categoryContainsProduct(category.id, product.category),
-        ),
-      ) ?? categoryData.categories[0],
-    [productsWithEnoughSizes],
-  );
-  const defaultCategoryProducts = useMemo(
-    () =>
-      defaultCategory
-        ? productsWithEnoughSizes
-            .filter((product) => categoryContainsProduct(defaultCategory.id, product.category))
-            .slice(0, 4)
-        : [],
-    [defaultCategory, productsWithEnoughSizes],
-  );
-  const heroProducts = useMemo(
-    () => productsWithEnoughSizes.filter((product) => product.images[0]).slice(0, 4),
-    [productsWithEnoughSizes],
-  );
-  const activeHeroProduct = heroProducts[heroIndex % Math.max(heroProducts.length, 1)];
+  // Home: one slide per category. Category/subcategory page: only that category.
+  const heroSlides = useMemo(() => {
+    if (route.name === "collection") {
+      const slide = getCollectionHeroSlide(route.categoryId, productsWithEnoughSizes);
+      return slide ? [slide] : [];
+    }
+    return route.name === "home" ? getHomeHeroSlides(liveCategories) : [];
+  }, [route, productsWithEnoughSizes, liveCategories]);
   const selectedProduct =
     route.name === "product"
       ? products.find((product) => product.slug === route.slug)
@@ -202,16 +184,6 @@ export function App() {
       trackStorefrontEvent({ name: "product_view", productId: selectedProductId });
     }
   }, [selectedProductId]);
-
-  useEffect(() => {
-    if (route.name !== "home" || heroProducts.length < 2) {
-      return;
-    }
-    const intervalId = window.setInterval(() => {
-      setHeroIndex((currentIndex) => (currentIndex + 1) % heroProducts.length);
-    }, 5000);
-    return () => window.clearInterval(intervalId);
-  }, [heroProducts.length, route.name]);
 
   const cartItems: CartItemView[] = useMemo(
     () =>
@@ -401,45 +373,54 @@ export function App() {
     navigate(listingPath.current ?? paths.home);
   }
 
+  function renderCatalogueStatus() {
+    return (
+      <>
+        {isLoading && (
+          <p className="status-message" role="status">
+            Loading the collection...
+          </p>
+        )}
+
+        {catalogueError && (
+          <div className="error-panel" role="alert">
+            <p>{catalogueError}</p>
+            <button
+              className="button button--secondary"
+              type="button"
+              onClick={() => setRefreshVersion((version) => version + 1)}
+            >
+              Try again
+            </button>
+          </div>
+        )}
+
+        {!isLoading && !catalogueError && productsWithEnoughSizes.length === 0 && (
+          <p className="status-message">
+            {products.length > 0
+              ? "Items are temporarily unavailable while their size options are updated."
+              : "No products are available right now."}
+          </p>
+        )}
+
+        {!catalogueError &&
+          productsWithEnoughSizes.length > 0 &&
+          productsWithEnoughSizes.length < products.length && (
+            <p className="status-message" role="status">
+              Some styles are temporarily unavailable while their size options
+              are updated.
+            </p>
+          )}
+      </>
+    );
+  }
+
   function renderProductGrid(items: CatalogueProduct[]) {
     return (
       <div className="product-grid">
         {items.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}
-      </div>
-    );
-  }
-
-  function renderProductCarousel(
-    items: CatalogueProduct[],
-    carouselRef: RefObject<HTMLDivElement | null>,
-  ) {
-    return (
-      <div className="product-carousel">
-        <button
-          className="product-carousel__control product-carousel__control--previous"
-          type="button"
-          aria-label="Previous products"
-          onClick={() => carouselRef.current?.scrollBy({ left: -carouselRef.current.clientWidth * 0.85, behavior: "smooth" })}
-        >
-          ←
-        </button>
-        <div className="product-carousel__viewport" ref={carouselRef}>
-          <div className="product-grid product-grid--carousel">
-            {items.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        </div>
-        <button
-          className="product-carousel__control product-carousel__control--next"
-          type="button"
-          aria-label="Next products"
-          onClick={() => carouselRef.current?.scrollBy({ left: carouselRef.current.clientWidth * 0.85, behavior: "smooth" })}
-        >
-          →
-        </button>
       </div>
     );
   }
@@ -486,7 +467,6 @@ export function App() {
               ))}
             </div>
           </div>
-          <Link to={{ pathname: paths.home, hash: "new-arrivals" }}>New arrivals</Link>
         </nav>
         <button
           className="bag-link"
@@ -563,154 +543,65 @@ export function App() {
 
         {(route.name === "home" || route.name === "collection") && (
           <>
-            {route.name === "home" && (
-            <section className="hero">
-              <div className="hero__copy">
-                <p className="eyebrow">Manvelle / New collection</p>
-                <h1>Style that moves with you.</h1>
-                <p>
-                  Refined everyday menswear, made for the streets of Accra.
-                  Discover your next favourite fit.
-                </p>
-                <Link className="hero__cta" to={{ pathname: paths.home, hash: "collection" }}>Shop the collection <span>↗</span></Link>
-                <div className="hero__scan">
-                  <span className="hero__qr" aria-hidden="true">
-                    <i /><i /><i /><i /><i /><i /><i /><i /><i />
-                  </span>
-                  <span><strong>Scan for</strong><br />exclusive offers</span>
-                </div>
-              </div>
-              <div className="hero__visual" aria-label="Featured product">
-                <div className="hero__burst">NEW<br /><small>DROP</small></div>
-                <img
-                  src={activeHeroProduct?.images[0]?.url ?? getLocalProductImageUrl("cargo-pants") ?? ""}
-                  alt={activeHeroProduct?.images[0]?.alt_text || activeHeroProduct?.name || "Featured product from the new collection"}
-                />
-              </div>
-              <div className="hero__accent">
-                <span className="hero__dots">•••</span>
-                <strong>MANVELLE</strong>
-                <span>Menswear Ghana</span>
-                <div className="hero__offer">10%<small>OFF</small></div>
-              </div>
-            </section>
+            {heroSlides.length > 0 ? (
+              <HeroCarousel slides={heroSlides} />
+            ) : (
+              isLoading && (
+                <div className="home-hero home-hero--loading" aria-hidden="true" />
+              )
             )}
 
-            <section
-              className="catalogue-section"
-              id="collection"
-              aria-labelledby="catalogue-heading"
-            >
-              <div className="section-heading">
-                <div>
-                  <p className="eyebrow">The collection</p>
-                  <h2 id="catalogue-heading">
-                    {selectedCategory
-                      ? getCategoryLabel(selectedCategory)
-                      : "Shop the collection"}
-                  </h2>
-                </div>
-                <div className="catalogue-tools">
-                  <span className="muted">
-                    {visibleProducts.length}{" "}
-                    {visibleProducts.length === 1 ? "style" : "styles"}
-                  </span>
-                  <button
-                    className="text-button"
-                    type="button"
-                    disabled={isLoading}
-                    onClick={() => setRefreshVersion((version) => version + 1)}
-                  >
-                    Refresh availability
-                  </button>
-                </div>
-              </div>
-
-              {isLoading && (
-                <p className="status-message" role="status">
-                  Loading the collection...
-                </p>
-              )}
-
-              {catalogueError && (
-                <div className="error-panel" role="alert">
-                  <p>{catalogueError}</p>
-                  <button
-                    className="button button--secondary"
-                    type="button"
-                    onClick={() => setRefreshVersion((version) => version + 1)}
-                  >
-                    Try again
-                  </button>
-                </div>
-              )}
-
-              {!isLoading &&
-                !catalogueError &&
-                productsWithEnoughSizes.length === 0 && (
-                  <p className="status-message">
-                    {products.length > 0
-                      ? "Items are temporarily unavailable while their size options are updated."
-                      : "No products are available right now."}
-                  </p>
+            {route.name === "home" && (
+              <>
+                {renderCatalogueStatus()}
+                {!isLoading && !catalogueError && liveCategories.length > 0 && (
+                  <>
+                    <CategoryTiles categories={liveCategories} />
+                    <BenefitsStrip />
+                  </>
                 )}
+              </>
+            )}
 
-              {!catalogueError &&
-                productsWithEnoughSizes.length > 0 &&
-                productsWithEnoughSizes.length < products.length && (
-                  <p className="status-message" role="status">
-                    Some styles are temporarily unavailable while their size
-                    options are updated.
-                  </p>
-                )}
-
-              {!catalogueError && !isLoading && selectedCategory !== null && visibleProducts.length > 0 && (
-                renderProductGrid(visibleProducts)
-              )}
-              {!catalogueError && !isLoading && selectedCategory === null && (
-                <div className="home-collections">
-                  <section className="home-collection" aria-labelledby="trending-heading">
-                    <div className="section-heading section-heading--compact">
-                      <div>
-                        <p className="eyebrow">Popular now</p>
-                        <h2 id="trending-heading">Trending items</h2>
-                      </div>
-                    </div>
-                    {renderProductCarousel(
-                      trendingProducts.length > 0 ? trendingProducts : newArrivalProducts,
-                      trendingCarouselRef,
-                    )}
-                  </section>
-                  <section className="home-collection" id="new-arrivals" aria-labelledby="new-arrivals-heading">
-                    <div className="section-heading section-heading--compact">
-                      <div>
-                        <p className="eyebrow">Just in</p>
-                        <h2 id="new-arrivals-heading">New arrivals</h2>
-                      </div>
-                    </div>
-                    {renderProductCarousel(newArrivalProducts, newArrivalsCarouselRef)}
-                  </section>
-                  {defaultCategory && (
-                    <section className="home-collection" aria-labelledby="default-category-heading">
-                      <div className="section-heading section-heading--compact">
-                        <div>
-                          <p className="eyebrow">Shop by category</p>
-                          <h2 id="default-category-heading">{defaultCategory.name}</h2>
-                        </div>
-                        <Link className="text-button" to={paths.collection(defaultCategory.id)}>
-                          View more ↗
-                        </Link>
-                      </div>
-                      {renderProductGrid(defaultCategoryProducts)}
-                    </section>
-                  )}
+            {route.name === "collection" && (
+              <section
+                className="catalogue-section"
+                id="collection"
+                aria-labelledby="catalogue-heading"
+              >
+                <div className="section-heading">
+                  <div>
+                    <p className="eyebrow">The collection</p>
+                    <h2 id="catalogue-heading">
+                      {getCategoryLabel(route.categoryId)}
+                    </h2>
+                  </div>
+                  <div className="catalogue-tools">
+                    <span className="muted">
+                      {visibleProducts.length}{" "}
+                      {visibleProducts.length === 1 ? "style" : "styles"}
+                    </span>
+                    <button
+                      className="text-button"
+                      type="button"
+                      disabled={isLoading}
+                      onClick={() => setRefreshVersion((version) => version + 1)}
+                    >
+                      Refresh availability
+                    </button>
+                  </div>
                 </div>
-              )}
-              {!catalogueError && !isLoading && productsWithEnoughSizes.length > 0 && selectedCategory !== null && visibleProducts.length === 0 && (
-                <p className="status-message">No products are assigned to this category yet.</p>
-              )}
-            </section>
 
+                {renderCatalogueStatus()}
+
+                {!catalogueError && !isLoading && visibleProducts.length > 0 && (
+                  renderProductGrid(visibleProducts)
+                )}
+                {!catalogueError && !isLoading && productsWithEnoughSizes.length > 0 && visibleProducts.length === 0 && (
+                  <p className="status-message">No products are assigned to this category yet.</p>
+                )}
+              </section>
+            )}
           </>
         )}
 

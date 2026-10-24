@@ -108,3 +108,36 @@ export function getLocalProductImageUrl(
 ): string | null {
   return getLocalCatalogImages(slug, category)[0]?.url ?? null;
 }
+
+const extensionOrder = [".webp", ".jpeg", ".jpg", ".png"];
+
+function sortKey(fileName: string) {
+  // "carousel-12.jpeg" -> "carousel12", so carousel1, carousel2, carousel12 sort naturally.
+  return fileName.replace(/\.[^.]+$/, "").replace(/[^a-z0-9]/gi, "");
+}
+
+function compareCategoryFiles(first: CatalogFile, second: CatalogFile) {
+  const byName = collator.compare(sortKey(first.fileName), sortKey(second.fileName));
+  if (byName !== 0) {
+    return byName;
+  }
+  const extension = (file: CatalogFile) =>
+    extensionOrder.indexOf(`.${file.fileName.split(".").pop()?.toLowerCase()}`);
+  return extension(first) - extension(second);
+}
+
+/**
+ * Loose images that sit directly inside a category (or subcategory) folder, e.g.
+ * catalog/pants/hero.jpeg or catalog/mens-underwear/carousel1.jpeg.
+ * `stems` are file-name prefixes tried in order; the first prefix with any match wins.
+ */
+export function getCategoryImages(categoryId: string, stems: string[]): string[] {
+  const direct = catalogFiles.filter((file) => file.dir === categoryId);
+  for (const stem of stems) {
+    const hits = direct.filter((file) => file.fileName.toLowerCase().startsWith(stem));
+    if (hits.length > 0) {
+      return hits.sort(compareCategoryFiles).map((file) => file.url);
+    }
+  }
+  return [];
+}
