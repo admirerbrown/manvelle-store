@@ -11,19 +11,18 @@ type HeroCarouselProps = {
 /**
  * Hero banner. With several slides (home page) it rotates through them, the text and
  * the photo changing together. With one slide (a category page) it is a plain banner.
- * Rotation pauses on hover/focus, has a pause button, and is off for visitors who
- * prefer reduced motion.
+ * Rotation pauses while the pointer or keyboard focus is on the hero, and is off for
+ * visitors who prefer reduced motion.
  */
 export function HeroCarousel({ slides }: HeroCarouselProps) {
   const [index, setIndex] = useState(0);
-  const [userPaused, setUserPaused] = useState(false);
   const [interacting, setInteracting] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
 
   const count = slides.length;
   const slideKey = slides.map((slide) => slide.id).join("|");
   const activeIndex = count === 0 ? 0 : index % count;
-  const playing = count > 1 && !userPaused && !interacting && !reducedMotion;
+  const playing = count > 1 && !interacting && !reducedMotion;
 
   useEffect(() => {
     const query = window.matchMedia?.("(prefers-reduced-motion: reduce)");
@@ -84,7 +83,7 @@ export function HeroCarousel({ slides }: HeroCarouselProps) {
               <div className="home-hero__copy">
                 <p className="home-hero__eyebrow">{slide.eyebrow}</p>
                 <h1>{slide.headline}</h1>
-                <p className="home-hero__text">{slide.text}</p>
+                {slide.text && <p className="home-hero__text">{slide.text}</p>}
                 <Link className="home-hero__cta" to={slide.ctaTo}>
                   {slide.ctaLabel}
                 </Link>
@@ -121,14 +120,6 @@ export function HeroCarousel({ slides }: HeroCarouselProps) {
               </button>
             ))}
           </div>
-          <button
-            type="button"
-            className="home-hero__pause"
-            onClick={() => setUserPaused((paused) => !paused)}
-          >
-            {userPaused ? "Play" : "Pause"}
-            <span className="visually-hidden"> slideshow</span>
-          </button>
         </div>
       )}
     </section>

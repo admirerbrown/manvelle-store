@@ -14,17 +14,13 @@ export function categoryContainsProduct(
   );
 }
 
-export function styleLabel(count: number) {
-  return `${count} ${count === 1 ? "style" : "styles"}`;
-}
-
 export type HeroImage = { src: string; alt: string };
 
 export type HeroSlide = {
   id: string;
   eyebrow: string;
   headline: string;
-  text: string;
+  text: string | null;
   ctaLabel: string;
   ctaTo: To;
   images: HeroImage[];
@@ -167,7 +163,7 @@ export function getCollectionHeroSlide(
     id: path,
     eyebrow: category.name,
     headline: subcategory ? subcategory.name : copy.headline,
-    text: subcategory ? styleLabel(inCategory.length) : copy.text,
+    text: subcategory ? null : copy.text,
     ctaLabel: "Browse styles",
     ctaTo: { hash: "collection" },
     images: heroImages(path, subcategory?.name ?? category.name, inCategory),

@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { paths } from "../../app/routes";
-import { styleLabel, type LiveCategory } from "./categories";
+import type { LiveCategory } from "./categories";
 
 type CategoryTilesProps = {
   categories: LiveCategory[];
@@ -36,9 +36,6 @@ export function CategoryTiles({ categories }: CategoryTilesProps) {
                   <Link to={paths.collection(category.id)}>{category.name}</Link>
                 </h3>
               </div>
-              <span className="category-tile__label">
-                {styleLabel(category.styleCount)}
-              </span>
             </div>
             {category.subcategories.length > 0 && (
               <div className="category-tile__chips">

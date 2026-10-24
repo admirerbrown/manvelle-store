@@ -4253,20 +4253,8 @@ a.text-button {
   background: var(--accent-ink);
 }
 
-.home-hero__pause {
-  min-height: 2.75rem;
-  padding: 0 0.75rem;
-  border: 0;
-  background: none;
-  color: var(--accent-ink);
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-decoration: underline;
-}
-
 .home-hero__cta:focus-visible,
 .home-hero__dot:focus-visible,
-.home-hero__pause:focus-visible,
 .category-tile a:focus-visible {
   outline: 2px solid var(--accent-ink);
   outline-offset: 2px;
@@ -4477,4 +4465,31 @@ a.text-button {
   .benefits__item {
     align-items: flex-start;
   }
+}
+
+/* ---- Category dropdown: opens on hover and stays open while the pointer moves into it ---- */
+.store-nav__menu {
+  visibility: hidden;
+  pointer-events: auto;
+  /* short grace period before closing, so a small pointer wobble does not shut the menu */
+  transition:
+    opacity 160ms ease 150ms,
+    transform 160ms ease 150ms,
+    visibility 0s linear 310ms;
+}
+
+/* Invisible bridge over the gap between the "Categories" label and the menu. */
+.store-nav__menu::before {
+  position: absolute;
+  top: -1rem;
+  right: 0;
+  left: 0;
+  height: 1rem;
+  content: "";
+}
+
+.store-nav__dropdown:hover .store-nav__menu,
+.store-nav__dropdown:focus-within .store-nav__menu {
+  visibility: visible;
+  transition-delay: 0s;
 }

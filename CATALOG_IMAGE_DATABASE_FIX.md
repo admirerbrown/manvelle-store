@@ -44,7 +44,7 @@ The home page and category pages are built from the catalog automatically:
   rule. A subcategory page can have its own `hero.jpeg` in its folder
   (`catalog/pants/office/hero.jpeg`).
 * **Category tiles (home):** the photo is `cover*` in the category folder if present, otherwise the
-  first photo of the category's featured (or first) product. Tiles, style counts and subcategory
+  first photo of the category's featured (or first) product. Tiles and subcategory
   chips only appear for categories and subcategories that have at least one product.
 * Hero copy comes from `src/features/home/categories.ts` (`categoryCopy`); categories without an
   entry get a generic headline.
