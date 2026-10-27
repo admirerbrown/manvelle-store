@@ -33,6 +33,15 @@ import categoryData from "../../catalog/category.json";
 
 const minimumProductVariantCount = 4;
 
+// Dropdown: categories with subcategories are grouped in columns; categories
+// without any sit in a row at the bottom.
+const dropdownGroups = categoryData.categories.filter(
+  (category) => category.subcategories.length > 0,
+);
+const dropdownSingles = categoryData.categories.filter(
+  (category) => category.subcategories.length === 0,
+);
+
 export function App() {
   const [products, setProducts] = useState<CatalogueProduct[]>([]);
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -448,10 +457,16 @@ export function App() {
               Categories <span aria-hidden="true">⌄</span>
             </button>
             <div className="store-nav__menu">
-              {categoryData.categories.map((category) => (
-                <div className="store-nav__menu-group" key={category.id}>
-                  <Link to={paths.collection(category.id)}>{category.name}</Link>
-                  {category.subcategories.length > 0 && (
+              <div className="store-nav__menu-inner">
+              <div className="store-nav__groups">
+                {dropdownGroups.map((category) => (
+                  <div className="store-nav__menu-group" key={category.id}>
+                    <Link
+                      className="store-nav__group-title"
+                      to={paths.collection(category.id)}
+                    >
+                      {category.name}
+                    </Link>
                     <div className="store-nav__submenu">
                       {category.subcategories.map((subcategory) => (
                         <Link
@@ -462,9 +477,23 @@ export function App() {
                         </Link>
                       ))}
                     </div>
-                  )}
+                  </div>
+                ))}
+              </div>
+              {dropdownSingles.length > 0 && (
+                <div className="store-nav__menu-footer">
+                  {dropdownSingles.map((category) => (
+                    <Link
+                      className="store-nav__footer-link"
+                      key={category.id}
+                      to={paths.collection(category.id)}
+                    >
+                      {category.name}
+                    </Link>
+                  ))}
                 </div>
-              ))}
+              )}
+              </div>
             </div>
           </div>
         </nav>

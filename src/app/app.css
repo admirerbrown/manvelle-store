@@ -4493,3 +4493,136 @@ a.text-button {
   visibility: visible;
   transition-delay: 0s;
 }
+
+/* ---- Category dropdown v2: two-column panel, serif titles, lime hover, single categories at the bottom ---- */
+/* The panel hangs from the bottom edge of the header and the hover area reaches that edge,
+   so there is no gap to cross and the panel always stays inside the page. */
+.store-nav {
+  align-self: stretch;
+}
+
+.store-nav__dropdown {
+  position: static;
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+}
+
+.store-nav__dropdown .store-nav__menu {
+  top: 100%;
+  right: 0;
+  left: auto;
+  display: block;
+  width: min(30rem, calc(100vw - 2rem));
+  min-width: 0;
+  padding: 1.1rem 1.25rem 1rem;
+  border: 1px solid #e3e0d8;
+  background: #fff;
+  box-shadow: 0 1.25rem 2.5rem rgb(23 33 42 / 14%);
+  transform: translateY(-0.4rem);
+}
+
+.store-nav__dropdown:hover .store-nav__menu,
+.store-nav__dropdown:focus-within .store-nav__menu {
+  transform: translateY(0);
+}
+
+.store-nav__menu::before {
+  top: -0.5rem;
+  height: 0.5rem;
+}
+
+.store-nav__menu-inner {
+  max-height: calc(100vh - 9rem);
+  overflow-y: auto;
+}
+
+.store-nav__groups {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem 2rem;
+}
+
+.store-nav__menu-group {
+  display: block;
+}
+
+.store-nav__menu a {
+  letter-spacing: normal;
+  text-transform: none;
+  transition:
+    background-color 120ms ease,
+    padding-left 120ms ease;
+}
+
+.store-nav__menu a.store-nav__group-title,
+.store-nav__menu a.store-nav__footer-link {
+  padding: 0.5rem 0.75rem;
+  color: var(--accent-ink);
+  font-family: Newsreader, Georgia, serif;
+  font-size: 1.2rem;
+  font-weight: 500;
+  line-height: 1.2;
+  text-transform: none;
+}
+
+.store-nav__menu a.store-nav__group-title {
+  margin-bottom: 0.2rem;
+  border-bottom: 1px solid #e3e0d8;
+}
+
+.store-nav__menu .store-nav__submenu {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.1rem;
+}
+
+.store-nav__menu .store-nav__submenu a {
+  padding: 0.5rem 0.75rem;
+  color: var(--theme-muted);
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.store-nav__menu a:hover,
+.store-nav__menu a:focus-visible {
+  background: var(--lime);
+  color: var(--accent-ink);
+  outline: 0;
+}
+
+.store-nav__menu .store-nav__submenu a:hover,
+.store-nav__menu .store-nav__submenu a:focus-visible {
+  padding-left: 1rem;
+}
+
+.store-nav__menu-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 1rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid #e3e0d8;
+}
+
+.store-nav__trigger span {
+  display: inline-block;
+  transition: transform 160ms ease;
+}
+
+.store-nav__dropdown:hover .store-nav__trigger span,
+.store-nav__dropdown:focus-within .store-nav__trigger span {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 760px) {
+  .store-nav__dropdown .store-nav__menu {
+    width: min(20rem, calc(100vw - 2rem));
+  }
+
+  .store-nav__groups {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
