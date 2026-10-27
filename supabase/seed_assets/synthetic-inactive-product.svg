@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 800" role="img" aria-labelledby="title">
+  <title id="title">Synthetic inactive test fixture - garment illustration</title>
+  <rect width="640" height="800" fill="#e7e2d8"/>
+  <path d="m210 160 65-40h90l65 40 115 90-70 95-65-48v290H230V297l-65 48-70-95z" fill="#526277"/>
+  <path d="M275 120c10 48 25 70 45 70s35-22 45-70" fill="none" stroke="#394657" stroke-width="12"/>
+  <path d="M320 190v347" stroke="#394657" stroke-width="8"/>
+  <rect x="32" y="665" width="576" height="82" rx="8" fill="#20221f"/>
+  <text x="320" y="715" fill="#fff" font-family="Arial, sans-serif" font-size="25" font-weight="700" text-anchor="middle">SYNTHETIC TEST FIXTURE</text>
+</svg>
