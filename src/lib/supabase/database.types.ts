@@ -60,6 +60,31 @@ type DeliveryZoneRow = {
   updated_at: string;
 };
 
+type OrderRow = {
+  id: string;
+  order_number: string;
+  customer_name: string;
+  customer_phone: string;
+  delivery_address: string;
+  notes: string | null;
+  subtotal: number;
+  delivery_fee: number;
+  total: number;
+  order_status: "pending" | "confirmed" | "out_for_delivery" | "delivered" | "completed" | "cancelled" | "failed_delivery";
+  created_at: string;
+  updated_at: string;
+};
+
+type OrderItemRow = {
+  id: string;
+  order_id: string;
+  product_name_snapshot: string;
+  size_snapshot: string;
+  unit_price: number;
+  quantity: number;
+  line_subtotal: number;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -89,6 +114,17 @@ export type Database = {
           Partial<Pick<DeliveryZoneRow, "id" | "created_at" | "updated_at">>,
         Partial<DeliveryZoneRow>
       >;
+      orders: Table<
+        OrderRow,
+        Omit<OrderRow, "id" | "created_at" | "updated_at"> &
+          Partial<Pick<OrderRow, "id" | "created_at" | "updated_at">>,
+        Partial<OrderRow>
+      >;
+      order_items: Table<
+        OrderItemRow,
+        Omit<OrderItemRow, "id"> & Partial<Pick<OrderItemRow, "id">>,
+        Partial<OrderItemRow>
+      >;
     };
     Views: { [_ in never]: never };
     Functions: {
@@ -116,6 +152,10 @@ export type Database = {
           p_items: Json;
         };
         Returns: Json;
+      };
+      is_admin: {
+        Args: Record<string, never>;
+        Returns: boolean;
       };
     };
     Enums: { [_ in never]: never };
