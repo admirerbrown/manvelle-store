@@ -47,11 +47,23 @@ export type LiveCategory = {
 const categoryCopy: Record<string, { headline: string; text: string }> = {
   "mens-underwear": {
     headline: "Boxers and singlets for every day.",
-    text: "Pick your fit and your colour.",
+    text: "Comfort-first essentials with easy fits, soft fabrics and everyday colours.",
   },
   pants: {
     headline: "Trousers and shorts for every day.",
-    text: "Office, casual and cargo, in the colours you like.",
+    text: "From polished office cuts to durable cargo styles, made to move with you.",
+  },
+  "top-and-down": {
+    headline: "Layers built for changing days.",
+    text: "Easy casual pieces and outdoor layers for warm afternoons, cool evenings and everything between.",
+  },
+  tops: {
+    headline: "The pieces that pull it all together.",
+    text: "Clean shirts and relaxed tees in versatile colours for effortless everyday dressing.",
+  },
+  shoes: {
+    headline: "The finishing touch.",
+    text: "Practical, polished pairs designed to complete your everyday rotation.",
   },
 };
 
@@ -124,7 +136,7 @@ export function getLiveCategories(products: CatalogueProduct[]): LiveCategory[] 
 
 /** Home page: one slide per live category. */
 export function getHomeHeroSlides(categories: LiveCategory[]): HeroSlide[] {
-  return categories.map((category) => {
+  return categories.slice(0, 4).map((category) => {
     const copy = getCopy(category.id, category.name);
     return {
       id: category.id,
@@ -163,7 +175,7 @@ export function getCollectionHeroSlide(
     id: path,
     eyebrow: category.name,
     headline: subcategory ? subcategory.name : copy.headline,
-    text: subcategory ? null : copy.text,
+    text: copy.text,
     ctaLabel: "Browse styles",
     ctaTo: { hash: "collection" },
     images: heroImages(path, subcategory?.name ?? category.name, inCategory),
