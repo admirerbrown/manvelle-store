@@ -330,6 +330,33 @@ async function syncCatalog(products) {
     imageBucket = data;
   }
 
+  const catalogSlugs = new Set(products.map((product) => product.slug));
+  const { data: savedProducts, error: savedProductsError } = await client
+    .from("products")
+    .select("id,slug")
+    .eq("active", true);
+  if (savedProductsError) {
+    throw new Error("Could not reconcile products removed from the spreadsheet.", {
+      cause: savedProductsError,
+    });
+  }
+
+  for (const savedProduct of savedProducts) {
+    if (catalogSlugs.has(savedProduct.slug)) {
+      continue;
+    }
+    const { error: deactivateProductError } = await client
+      .from("products")
+      .update({ active: false })
+      .eq("id", savedProduct.id);
+    if (deactivateProductError) {
+      throw new Error(`Could not deactivate removed product ${savedProduct.slug}.`, {
+        cause: deactivateProductError,
+      });
+    }
+    console.log(`Deactivated removed product: ${savedProduct.slug}.`);
+  }
+
   for (const product of products) {
     const { directory, folderName } = await findImageDirectory(product);
     const images = await listImages(directory);
