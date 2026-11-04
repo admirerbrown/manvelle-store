@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { getCategoryLabel, paths, resolveRoute } from "./routes";
 import type { StorefrontPage } from "../features/analytics/analytics.service";
 import {
+  getCatalogueProductBySlug,
   getCatalogueProducts,
   isVariantInStock,
   type CatalogueImage,
@@ -92,10 +93,29 @@ export function App() {
     setIsLoading(true);
     setCatalogueError(null);
 
-    getCatalogueProducts()
+    const catalogueRequest =
+      route.name === "product"
+        ? getCatalogueProductBySlug(route.slug).then((product) =>
+            product ? [product] : [],
+          )
+        : getCatalogueProducts();
+
+    catalogueRequest
       .then((loadedProducts) => {
         if (isCurrent) {
-          setProducts(loadedProducts);
+          setProducts((currentProducts) => {
+            if (route.name !== "product") {
+              return loadedProducts;
+            }
+
+            const productsById = new Map(
+              currentProducts.map((product) => [product.id, product]),
+            );
+            for (const product of loadedProducts) {
+              productsById.set(product.id, product);
+            }
+            return [...productsById.values()];
+          });
         }
       })
       .catch((error: unknown) => {
@@ -116,7 +136,7 @@ export function App() {
     return () => {
       isCurrent = false;
     };
-  }, [refreshVersion]);
+  }, [refreshVersion, route.name, route.name === "product" ? route.slug : null]);
 
   // New page -> start at the top.
   useEffect(() => {
