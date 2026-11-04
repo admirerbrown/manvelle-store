@@ -796,8 +796,26 @@
     width: min(100% - 2rem, 1180px);
   }
 
+  .admin-header {
+    min-height: 4.5rem;
+  }
+
+  .admin-header-actions {
+    gap: 0.35rem;
+  }
+
+  .admin-header-actions .admin-button {
+    min-height: 2.35rem;
+    padding-inline: 0.6rem;
+    font-size: 0.75rem;
+  }
+
+  .admin-refresh {
+    padding-inline: 0.5rem !important;
+  }
+
   .admin-main {
-    padding-top: 2.5rem;
+    padding-top: 1.5rem;
   }
 
   .orders-heading {
@@ -810,6 +828,7 @@
 
   .admin-summary {
     grid-template-columns: 1fr 1fr;
+    margin-bottom: 1rem;
   }
 
   .orders-stat--split {
@@ -843,5 +862,64 @@
 
   .admin-detail-grid {
     grid-template-columns: 1fr;
+  }
+
+  .orders-toolbar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    padding: 0.8rem;
+  }
+
+  .orders-toolbar .orders-search {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+
+  .orders-toolbar label {
+    min-width: 0;
+  }
+
+  .orders-toolbar .admin-link {
+    align-self: end;
+    justify-self: start;
+  }
+
+  .admin-detail-nav__actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .admin-status-select select,
+  .admin-detail-nav__actions .admin-button--whatsapp {
+    width: 100%;
+  }
+
+  .admin-item {
+    grid-template-columns: 2.75rem minmax(0, 1fr) auto;
+    gap: 0.6rem;
+    padding: 0.55rem;
+  }
+
+  .admin-item__media {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .admin-item__name {
+    font-size: 0.8rem;
+  }
+
+  .admin-item__meta {
+    font-size: 0.68rem;
+  }
+
+  .admin-item strong {
+    padding: 0.25rem 0.4rem;
+    font-size: 0.68rem;
+  }
+
+  .admin-customer-details dd {
+    overflow-wrap: anywhere;
   }
 }
