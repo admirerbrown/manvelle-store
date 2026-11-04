@@ -30,7 +30,6 @@ import {
 import { CheckoutForm } from "../features/checkout/CheckoutForm";
 import type { GuestOrderConfirmation } from "../features/checkout/checkout.service";
 import { formatGhs } from "../lib/format-currency";
-import { StoreFooter } from "./StoreFooter";
 import categoryData from "../../catalog/category.json";
 
 const minimumProductVariantCount = 4;
@@ -816,8 +815,10 @@ export function App() {
         )}
       </main>
 
-      <StoreFooter />
-
+      <footer className="store-footer">
+        <span>Manvelle Menswear Ghana</span>
+        <span>Guest checkout - delivery confirmed on WhatsApp</span>
+      </footer>
     </div>
   );
 }
