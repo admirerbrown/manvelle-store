@@ -22,6 +22,7 @@ as $$
 $$;
 
 revoke all on table public.admins from public, anon, authenticated;
+grant select, insert, update on table public.admins to service_role;
 revoke all on function public.is_admin() from public, anon, authenticated;
 grant execute on function public.is_admin() to anon, authenticated;
 

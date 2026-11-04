@@ -13,6 +13,7 @@
     "typecheck": "tsc -b --pretty",
     "catalog:validate": "node scripts/sync-catalog.mjs --check",
     "catalog:sync": "node scripts/sync-catalog.mjs --sync",
+    "add-admin": "node scripts/add-admin.mjs",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:status": "supabase status",

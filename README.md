@@ -73,7 +73,13 @@ For now, admins manage product and variant rows in the Supabase Dashboard using 
 
 ### Local admin setup
 
-The admin dashboard is intended for a controlled pilot. After starting Supabase, create a local Auth user in Studio at [http://127.0.0.1:54423](http://127.0.0.1:54423), replace the placeholder email in `supabase/seed-admin.sql`, and run `npm run db:reset`. The seed file is included in local resets and only grants admin access to the exact email listed there.
+The admin dashboard is intended for a controlled pilot. Start Supabase, then use the helper script to create or reuse an Auth user and grant that email admin access:
+
+```bash
+npm run add-admin
+```
+
+Add or remove test addresses in the `admins` list at the top of `scripts/add-admin.mjs`, then run the command again. Blank entries are ignored. The script reads `.env.local` and uses `VITE_SUPABASE_URL` for the local API URL. Add the `sb_secret_...` value from `npm run db:status` as `SUPABASE_SECRET_KEY`; the `sb_publishable_...` key cannot create Auth users. Never put the secret key in a `VITE_` variable or commit it. The seed file remains available for database resets, but it does not create Auth users.
 
 Local OTP emails are captured by Supabase's email testing UI at [http://127.0.0.1:54424](http://127.0.0.1:54424). Open `/admin/login`, request a code, then copy the six-digit `{{ .Token }}` value from the captured email. The local Auth session lasts four hours. In a hosted project, configure custom SMTP, apply the migrations, add only approved admin emails to `public.admins`, and verify the OTP template and RLS policies before inviting staff.
 
