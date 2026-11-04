@@ -1,9 +1,17 @@
 import { getAdminSupabaseClient } from "../lib/adminSupabase";
 import type { Database } from "../lib/supabase/database.types";
+import {
+  getLocalCatalogImages,
+} from "../features/catalogue/catalog-images";
+import { colourNameFromFile } from "../lib/catalog-folder";
 
 export type AdminOrder = Database["public"]["Tables"]["orders"]["Row"];
 export type AdminOrderItem =
   Database["public"]["Tables"]["order_items"]["Row"];
+export type AdminOrderItemView = AdminOrderItem & {
+  imageUrl: string | null;
+  colorName: string | null;
+};
 export type AdminOrderStatus = "pending" | "completed" | "cancelled";
 
 export async function checkAdminAccess(): Promise<boolean> {
@@ -64,7 +72,7 @@ export async function listAdminOrders(
 
 export async function getAdminOrder(id: string): Promise<{
   order: AdminOrder;
-  items: AdminOrderItem[];
+  items: AdminOrderItemView[];
 }> {
   const client = getAdminSupabaseClient();
   const [orderResult, itemResult] = await Promise.all([
@@ -73,7 +81,66 @@ export async function getAdminOrder(id: string): Promise<{
   ]);
   if (orderResult.error) throw orderResult.error;
   if (itemResult.error) throw itemResult.error;
-  return { order: orderResult.data, items: itemResult.data };
+
+  const productIds = [
+    ...new Set(
+      itemResult.data
+        .map((item) => item.product_id)
+        .filter((productId): productId is string => productId !== null),
+    ),
+  ];
+  const [productsResult, imagesResult] = await Promise.all([
+    productIds.length > 0
+      ? client.from("products").select("id,slug,category").in("id", productIds)
+      : Promise.resolve({ data: [], error: null }),
+    productIds.length > 0
+      ? client
+          .from("product_images")
+          .select("product_id,storage_path")
+          .in("product_id", productIds)
+          .eq("active", true)
+          .order("sort_order", { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (productsResult.error) throw productsResult.error;
+  if (imagesResult.error) throw imagesResult.error;
+
+  const remoteImageByProduct = new Map<
+    string,
+    { url: string; colorName: string }
+  >();
+  for (const image of imagesResult.data) {
+    if (!remoteImageByProduct.has(image.product_id)) {
+      remoteImageByProduct.set(
+        image.product_id,
+        {
+          url: client.storage
+            .from("product-images")
+            .getPublicUrl(image.storage_path).data.publicUrl,
+          colorName: colourNameFromFile(image.storage_path),
+        },
+      );
+    }
+  }
+  const productById = new Map(productsResult.data.map((product) => [product.id, product]));
+
+  return {
+    order: orderResult.data,
+    items: itemResult.data.map((item) => {
+      const product = item.product_id ? productById.get(item.product_id) : undefined;
+      const remoteImage = item.product_id
+        ? remoteImageByProduct.get(item.product_id)
+        : undefined;
+      const localImage = product
+        ? getLocalCatalogImages(product.slug, product.category)[0]
+        : undefined;
+      return {
+        ...item,
+        imageUrl: remoteImage?.url ?? localImage?.url ?? null,
+        colorName: remoteImage?.colorName ?? localImage?.colorName ?? null,
+      };
+    }),
+  };
 }
 
 export async function updateAdminOrderStatus(

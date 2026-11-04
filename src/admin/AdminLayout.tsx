@@ -12,11 +12,21 @@ export function AdminLayout({ children }: { children: ReactNode }) {
     <div className="admin-shell">
       <header className="admin-header">
         <Link to="/admin/orders" className="admin-brand">
-          Manvelle <span>Admin</span>
+          Manvelle
         </Link>
-        <button type="button" className="admin-button admin-button--quiet" onClick={logout}>
-          Log out
-        </button>
+        <div className="admin-header-actions">
+          <button
+            type="button"
+            className="admin-button admin-button--quiet admin-refresh"
+            onClick={() => window.location.reload()}
+          >
+            ↻ Refresh
+          </button>
+          <span className="admin-role">Admin</span>
+          <button type="button" className="admin-button admin-button--quiet" onClick={logout}>
+            Log out
+          </button>
+        </div>
       </header>
       <main className="admin-main">{children}</main>
     </div>

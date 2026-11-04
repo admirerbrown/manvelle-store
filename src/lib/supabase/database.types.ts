@@ -78,6 +78,8 @@ type OrderRow = {
 type OrderItemRow = {
   id: string;
   order_id: string;
+  product_id: string | null;
+  variant_id: string | null;
   product_name_snapshot: string;
   size_snapshot: string;
   unit_price: number;
