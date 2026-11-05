@@ -8,6 +8,7 @@ import categoryData from "../../catalog/category.json";
 //   /collections/pants             a category
 //   /collections/pants/office      a subcategory
 //   /products/cargo-pants          a product
+//   /faq   /contact
 //   /bag   /checkout   /order-confirmation
 
 export const paths = {
@@ -17,6 +18,8 @@ export const paths = {
   bag: "/bag",
   checkout: "/checkout",
   confirmation: "/order-confirmation",
+  faq: "/faq",
+  contact: "/contact",
 } as const;
 
 export type AppRoute =
@@ -27,6 +30,8 @@ export type AppRoute =
   | { name: "bag" }
   | { name: "checkout" }
   | { name: "confirmation" }
+  | { name: "faq" }
+  | { name: "contact" }
   | { name: "not-found" };
 
 /** "pants", "pants/office", ... straight from catalog/category.json. */
@@ -69,5 +74,7 @@ export function resolveRoute(pathname: string): AppRoute {
   if (matchPath("/bag", pathname)) return { name: "bag" };
   if (matchPath("/checkout", pathname)) return { name: "checkout" };
   if (matchPath("/order-confirmation", pathname)) return { name: "confirmation" };
+  if (matchPath("/faq", pathname)) return { name: "faq" };
+  if (matchPath("/contact", pathname)) return { name: "contact" };
   return { name: "not-found" };
 }

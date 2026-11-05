@@ -85,6 +85,7 @@ type OrderItemRow = {
   unit_price: number;
   quantity: number;
   line_subtotal: number;
+  color_snapshot: string | null;
 };
 
 export type Database = {

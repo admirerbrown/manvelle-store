@@ -12,6 +12,7 @@ type ReceiptOrder = {
 type ReceiptItem = {
   product_name_snapshot: string;
   size_snapshot: string;
+  colorName?: string | null;
   quantity: number;
   line_subtotal: number;
 };
@@ -28,7 +29,7 @@ export function buildReceiptLink(
   }).format(new Date(order.created_at));
   const lines = items.map(
     (item) =>
-      `${item.quantity} x ${item.product_name_snapshot} (${item.size_snapshot}) - GH₵${item.line_subtotal.toFixed(2)}`,
+      `${item.quantity} x ${item.product_name_snapshot} (${item.size_snapshot}${item.colorName ? `, ${item.colorName}` : ""}) - GH₵${item.line_subtotal.toFixed(2)}`,
   );
   const message = [
     `Hello ${order.customer_name}, thank you for ordering from Manvelle Menswear Ghana.`,

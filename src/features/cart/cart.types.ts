@@ -2,6 +2,7 @@ export type CartLine = {
   productId: string;
   variantId: string;
   imageId: string | null;
+  colorName?: string;
   quantity: number;
 };
 

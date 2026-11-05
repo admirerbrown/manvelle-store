@@ -13,6 +13,15 @@ function rangeForDate(value: string): [string, string] {
   return [start.toISOString(), end.toISOString()];
 }
 
+function formatOrderDate(value: string): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "Africa/Accra",
+  }).format(new Date(value));
+}
+
 export function OrdersPage() {
   const [date, setDate] = useState(todayAccra());
   const [status, setStatus] = useState<AdminOrderStatus | "all">("all");
@@ -52,7 +61,7 @@ export function OrdersPage() {
         <label><span>Status</span><select value={status} onChange={(event) => setStatus(event.target.value as AdminOrderStatus | "all")}><option value="all">All statuses</option><option value="pending">Pending</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></label>
       </div>
       {error && <p className="admin-error" role="alert">{error}</p>}
-      {loading ? <p className="admin-status">Loading orders…</p> : visibleOrders.length > 0 ? <div className="admin-order-list">{visibleOrders.map((order) => <Link className="admin-order-row" to={`/admin/orders/${order.id}`} key={order.id}><span className="order-primary"><strong>{order.order_number}</strong><small>{new Date(order.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · {order.customer_name}</small></span><span className="order-customer"><strong>{order.customer_phone}</strong><small>Customer contact</small></span><span className="order-total"><strong>{formatGhs(order.total)}</strong><small>Order total</small></span><span className={`admin-badge admin-badge--${order.order_status}`}>{order.order_status}</span><span className="order-arrow" aria-hidden="true">↗</span></Link>)}</div> : <div className="orders-empty"><span aria-hidden="true">◎</span><h2>No orders found</h2><p>{search ? "Try a different order number, customer name, or phone number." : "There are no orders matching these filters yet."}</p></div>}
+      {loading ? <p className="admin-status">Loading orders…</p> : visibleOrders.length > 0 ? <div className="admin-order-list">{visibleOrders.map((order) => <Link className="admin-order-row" to={`/admin/orders/${order.id}`} key={order.id}><span className="order-primary"><strong>{order.order_number}</strong><small>{formatOrderDate(order.created_at)} · {new Date(order.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZone: "Africa/Accra" })} · {order.customer_name}</small></span><span className="order-customer"><strong>{order.customer_phone}</strong><small>Customer contact</small></span><span className="order-total"><strong>{formatGhs(order.total)}</strong><small>Order total</small></span><span className={`admin-badge admin-badge--${order.order_status}`}>{order.order_status}</span><span className="order-arrow" aria-hidden="true">↗</span></Link>)}</div> : <div className="orders-empty"><span aria-hidden="true">◎</span><h2>No orders found</h2><p>{search ? "Try a different order number, customer name, or phone number." : "There are no orders matching these filters yet."}</p></div>}
     </section>
   );
 }

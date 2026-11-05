@@ -271,6 +271,12 @@
   margin-bottom: 1.25rem;
 }
 
+.admin-order-date {
+  margin: 0.35rem 0 0;
+  color: var(--admin-muted);
+  font-size: 0.82rem;
+}
+
 .orders-heading h1 span {
   color: var(--admin-lime);
 }

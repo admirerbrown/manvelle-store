@@ -128,16 +128,32 @@ export async function getAdminOrder(id: string): Promise<{
     order: orderResult.data,
     items: itemResult.data.map((item) => {
       const product = item.product_id ? productById.get(item.product_id) : undefined;
-      const remoteImage = item.product_id
-        ? remoteImageByProduct.get(item.product_id)
-        : undefined;
+      const remoteImages = item.product_id
+        ? imagesResult.data
+            .filter((image) => image.product_id === item.product_id)
+            .map((image) => ({
+              url: client.storage
+                .from("product-images")
+                .getPublicUrl(image.storage_path).data.publicUrl,
+              colorName: colourNameFromFile(image.storage_path),
+            }))
+        : [];
+      const remoteImage =
+        remoteImages.find((image) => image.colorName === item.color_snapshot) ??
+        (item.product_id ? remoteImageByProduct.get(item.product_id) : undefined);
       const localImage = product
-        ? getLocalCatalogImages(product.slug, product.category)[0]
+        ? getLocalCatalogImages(product.slug, product.category).find(
+            (image) => image.colorName === item.color_snapshot,
+          ) ?? getLocalCatalogImages(product.slug, product.category)[0]
         : undefined;
       return {
         ...item,
         imageUrl: remoteImage?.url ?? localImage?.url ?? null,
-        colorName: remoteImage?.colorName ?? localImage?.colorName ?? null,
+        colorName:
+          item.color_snapshot ??
+          remoteImage?.colorName ??
+          localImage?.colorName ??
+          null,
       };
     }),
   };

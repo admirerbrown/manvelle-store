@@ -63,8 +63,15 @@ export function App() {
   const [catalogueError, setCatalogueError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshVersion, setRefreshVersion] = useState(0);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobileCategoriesOpen, setIsMobileCategoriesOpen] = useState(false);
   const lastTrackedPage = useRef<StorefrontPage | null>(null);
   const handledHash = useRef("");
+
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+    setIsMobileCategoriesOpen(false);
+  }, [location.pathname]);
 
   const trackedPage: StorefrontPage | null =
     route.name === "checkout" || route.name === "confirmation"
@@ -288,6 +295,7 @@ export function App() {
       productId: product.id,
       variantId: variant.id,
       imageId: image?.id ?? null,
+      colorName: image?.colorName,
     };
     const lineKey = getCartLineKey(line);
     const existingItem = cart.find(
@@ -461,7 +469,28 @@ export function App() {
           <span className="store-brand__name">Manvelle</span>
           <span className="store-brand__caption">Menswear Ghana</span>
         </div>
-        <nav className="store-nav" aria-label="Main navigation">
+        <button
+          className="mobile-menu-toggle"
+          type="button"
+          aria-expanded={isMobileMenuOpen}
+          aria-controls="store-navigation"
+          onClick={() => setIsMobileMenuOpen((open) => !open)}
+        >
+          <span className="visually-hidden">Menu</span>
+          <span aria-hidden="true">☰</span>
+        </button>
+        <nav
+          className={`store-nav${isMobileMenuOpen ? " store-nav--open" : ""}`}
+          id="store-navigation"
+          aria-label="Main navigation"
+        >
+          <button
+            className="mobile-menu-close"
+            type="button"
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <span aria-hidden="true">×</span> Close menu
+          </button>
           <Link
             to={paths.home}
             onClick={() => {
@@ -472,11 +501,20 @@ export function App() {
           >
             Home
           </Link>
-          <div className="store-nav__dropdown">
-            <button className="store-nav__trigger" type="button">
+          <div className={`store-nav__dropdown${isMobileCategoriesOpen ? " store-nav__dropdown--open" : ""}`}>
+            <button
+              className="store-nav__trigger"
+              type="button"
+              onClick={() => setIsMobileCategoriesOpen((open) => !open)}
+              aria-expanded={isMobileCategoriesOpen}
+              aria-controls="mobile-category-links"
+            >
               Categories <span aria-hidden="true">⌄</span>
             </button>
-            <div className="store-nav__menu">
+            <div
+              className="store-nav__menu"
+              id="mobile-category-links"
+            >
               <div className="store-nav__menu-inner">
               <div className="store-nav__groups">
                 {dropdownGroups.map((category) => (
@@ -516,6 +554,8 @@ export function App() {
               </div>
             </div>
           </div>
+          <Link to={paths.faq}>FAQ</Link>
+          <Link to={paths.contact}>Contact us</Link>
         </nav>
         <button
           className="bag-link"
@@ -811,6 +851,36 @@ export function App() {
             <p className="confirmation__redirect-note" role="status">
               Returning to the collection in 5 seconds.
             </p>
+          </section>
+        )}
+
+        {(route.name === "faq" || route.name === "contact") && (
+          <section className="info-page" aria-labelledby="info-page-heading">
+            <p className="eyebrow">{route.name === "faq" ? "Helpful answers" : "We are here to help"}</p>
+            <h1 id="info-page-heading">
+              {route.name === "faq" ? "Frequently asked questions" : "Contact Manvelle"}
+            </h1>
+            {route.name === "faq" ? (
+              <div className="info-page__content">
+                <details open>
+                  <summary>How do I place an order?</summary>
+                  <p>Choose a style, select your colour and size, then add it to your bag. Checkout is quick and does not require an account.</p>
+                </details>
+                <details>
+                  <summary>How will delivery be confirmed?</summary>
+                  <p>We will contact you on WhatsApp to confirm your delivery details and fee before sending your order.</p>
+                </details>
+                <details>
+                  <summary>Can I order more than one colour?</summary>
+                  <p>Yes. Add each colour and size combination separately to your bag.</p>
+                </details>
+              </div>
+            ) : (
+              <div className="info-page__content">
+                <p>Questions about sizing, availability or delivery? We would love to hear from you.</p>
+                <p>Place an order to start a WhatsApp conversation with our team, or use the details shared in your order confirmation.</p>
+              </div>
+            )}
           </section>
         )}
       </main>

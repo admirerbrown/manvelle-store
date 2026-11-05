@@ -173,17 +173,19 @@ function parseConfirmationItem(
 function aggregateOrderItems(items: CartLine[]) {
   const itemsByVariant = new Map<
     string,
-    { product_id: string; variant_id: string; quantity: number }
+    { product_id: string; variant_id: string; quantity: number; color_name?: string }
   >();
   for (const item of items) {
-    const existing = itemsByVariant.get(item.variantId);
+    const key = `${item.variantId}:${item.imageId ?? ""}`;
+    const existing = itemsByVariant.get(key);
     if (existing) {
       existing.quantity += item.quantity;
     } else {
-      itemsByVariant.set(item.variantId, {
+      itemsByVariant.set(key, {
         product_id: item.productId,
         variant_id: item.variantId,
         quantity: item.quantity,
+        color_name: item.colorName,
       });
     }
   }
