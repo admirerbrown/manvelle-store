@@ -3542,7 +3542,9 @@ body {
   }
 
   .bag-list {
-    max-height: calc(4 * 11rem);
+    max-height: none;
+    overflow-y: visible;
+    padding-right: 0;
   }
 }
 
