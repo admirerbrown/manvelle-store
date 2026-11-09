@@ -46,6 +46,41 @@ The Supabase example values are placeholders for local development. `VITE_WHATSA
 | `npm run db:status` | Show local Supabase service status |
 | `npm run db:reset` | Recreate the local database and apply migrations |
 
+## Production setup and deployment
+
+After local database, security, and end-to-end checks pass, promote the tested
+code from `development` to `main`. The hosted database and static storefront
+are deployed separately:
+
+1. **Set up Supabase and sync the catalog.** Copy `.env.cloud.example` to the
+   ignored `.env.cloud` and fill in its required values. Log in to the Supabase
+   CLI, then run `bash deploy-cloud.sh` from the repository root. Review the
+   project-ref confirmation before continuing. The script links the project,
+   pushes migrations, syncs products and images, and configures admin access.
+   Supabase CLI v3 also asks whether to apply the auth configuration. The
+   script does not deploy the frontend or configure your SMTP provider/DNS.
+2. **Configure the production frontend.** Create the ignored `.env.production`
+   file with the hosted project URL and its anon/publishable API key:
+
+   ```dotenv
+   VITE_SUPABASE_URL=https://your-project-ref.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-public-anon-key
+   ```
+
+   Use the anon/publishable key only. Never put a service-role key or database
+   password in `.env.production`, a `VITE_` variable, or the frontend bundle.
+3. **Check and build.** Run `./check-build.sh`. It checks that the hosted API
+   responds with at least one active product, validates the local catalog
+   files, builds the site, and checks the generated bundle. To inspect the
+   production build locally, run `./check-build.sh --preview`.
+4. **Deploy the frontend manually.** Upload the generated `dist/` directory to
+   your static hosting provider. Configure an SPA fallback so requests for
+   storefront routes serve `index.html`; see the host-specific note below.
+
+The repository does not currently configure a frontend hosting provider or
+automated frontend deployment. Keep `.env.cloud` and `.env.production`
+uncommitted.
+
 ## Repository layout
 
 ```text
