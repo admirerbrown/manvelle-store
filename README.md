@@ -36,7 +36,9 @@ The Supabase example values are placeholders for local development. `VITE_WHATSA
 | `npm run preview` | Preview the built site locally |
 | `npm run typecheck` | Run the TypeScript project checks |
 | `npm run catalog:validate` | Validate product data, categories, sizes, and image folders without database changes |
-| `npm run catalog:sync` | Import the spreadsheet and product images into Supabase using authorized catalog credentials |
+| `npm run sync-catalog` | Import the spreadsheet and product images into the local Supabase database |
+| `npm run sync-catalog -- --cloud` | Import the spreadsheet and product images into the hosted project in `.env.cloud` |
+| `npm run catalog:sync` | Legacy alias for local catalog import |
 | `npm run db:start` | Start the local Supabase stack |
 | `npm run db:stop` | Stop the local Supabase stack |
 | `npm run db:status` | Show local Supabase service status |
@@ -104,7 +106,7 @@ Image file names identify color choices on each product page. Customers choose
 a color image and size before adding that combination to their bag; the
 WhatsApp order message includes the chosen image's public URL.
 
-Run `npm run catalog:validate` to check the spreadsheet and its image mappings without changing Supabase. To import or update products, set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in an ignored `.env.catalog.local` file (copy [.env.catalog.example](./.env.catalog.example) as a starting point), then run `npm run catalog:sync`. The importer upserts products, sizes, and image mappings, uploads the images to the public Storage bucket, deactivates sizes and images removed from the spreadsheet/folder, and does not delete old image files. Product availability is binary; catalog-managed size rows do not claim a stock quantity. Do not put the service-role key in any `VITE_` variable or frontend file.
+Run `npm run catalog:validate` to check the spreadsheet and its image mappings without changing Supabase. To import or update products locally, set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in an ignored `.env.catalog.local` file (copy [.env.catalog.example](./.env.catalog.example) as a starting point), then run `npm run sync-catalog` (or the existing `npm run catalog:sync` alias). To import into the hosted project configured in `.env.cloud`, run `npm run sync-catalog -- --cloud`; the `--` forwards the cloud option to the script. It uses `SUPABASE_PROJECT_REF` to select the project and fetches its service-role key through your authenticated Supabase CLI session. Alternatively, set `SUPABASE_SERVICE_ROLE_KEY` in `.env.cloud`. The importer upserts products, sizes, and image mappings, uploads the images to the public Storage bucket, deactivates sizes and images removed from the spreadsheet/folder, and does not delete old image files. Product availability is binary; catalog-managed size rows do not claim a stock quantity. Never put the service-role key in a `VITE_` variable, frontend file, or source control.
 
 ### Storefront analytics and privacy
 

@@ -1,9 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
+import { execFile } from "node:child_process";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
+import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { matchProductFolder } from "../src/lib/catalog-folder.js";
 
+const execFileAsync = promisify(execFile);
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const catalogPath = path.join(projectRoot, "catalog", "products.csv");
 const categoryPath = path.join(projectRoot, "catalog", "category.json");
@@ -234,23 +237,102 @@ async function listImages(folder) {
   return images;
 }
 
-function loadCatalogEnvironment() {
-  const envPath = path.join(projectRoot, ".env.catalog.local");
-  return readFile(envPath, "utf8")
-    .catch((error) => {
-      if (error.code === "ENOENT") {
-        return "";
-      }
-      throw error;
-    })
-    .then((contents) => {
-      for (const line of contents.split(/\r?\n/)) {
-        const match = line.match(/^\s*(SUPABASE_URL|SUPABASE_SERVICE_ROLE_KEY)\s*=\s*(.*?)\s*$/);
-        if (match && !process.env[match[1]]) {
-          process.env[match[1]] = match[2].replace(/^(['"])(.*)\1$/, "$2");
-        }
-      }
-    });
+async function loadEnvironmentFile(fileName, allowedKeys) {
+  let contents;
+  try {
+    contents = await readFile(path.join(projectRoot, fileName), "utf8");
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return new Map();
+    }
+    throw error;
+  }
+
+  const values = new Map();
+  for (const line of contents.split(/\r?\n/)) {
+    const match = line.match(/^\s*([A-Z][A-Z0-9_]*)\s*=\s*(.*?)\s*$/);
+    if (match && allowedKeys.has(match[1])) {
+      values.set(match[1], match[2].replace(/^(['"])(.*)\1$/, "$2"));
+    }
+  }
+  return values;
+}
+
+async function getCloudServiceRoleKey(projectRef) {
+  let stdout;
+  try {
+    ({ stdout } = await execFileAsync(
+      "supabase",
+      ["projects", "api-keys", "--project-ref", projectRef, "-o", "json"],
+      { cwd: projectRoot, maxBuffer: 1024 * 1024 },
+    ));
+  } catch (error) {
+    throw new Error(
+      "Could not retrieve the cloud API key. Log in with the Supabase CLI or set SUPABASE_SERVICE_ROLE_KEY in .env.cloud.",
+      { cause: error },
+    );
+  }
+
+  let apiKeys;
+  try {
+    apiKeys = JSON.parse(stdout);
+  } catch (error) {
+    throw new Error("The Supabase CLI returned invalid API-key data.", { cause: error });
+  }
+  const serviceRoleKey = Array.isArray(apiKeys)
+    ? apiKeys.find((key) => key.name === "service_role")?.api_key
+    : undefined;
+  if (!serviceRoleKey) {
+    fail("The Supabase CLI did not return a service_role API key for the cloud project.");
+  }
+  return serviceRoleKey;
+}
+
+async function getCatalogCredentials(useCloud) {
+  if (useCloud) {
+    const cloudEnvironment = await loadEnvironmentFile(
+      ".env.cloud",
+      new Set([
+        "SUPABASE_PROJECT_REF",
+        "SUPABASE_URL",
+        "SUPABASE_SECRET_KEY",
+        "SUPABASE_SERVICE_ROLE_KEY",
+      ]),
+    );
+    const projectRef = cloudEnvironment.get("SUPABASE_PROJECT_REF");
+    const supabaseUrl =
+      cloudEnvironment.get("SUPABASE_URL") ??
+      (projectRef ? `https://${projectRef}.supabase.co` : undefined);
+    const serviceRoleKey =
+      cloudEnvironment.get("SUPABASE_SERVICE_ROLE_KEY") ??
+      cloudEnvironment.get("SUPABASE_SECRET_KEY") ??
+      (projectRef ? await getCloudServiceRoleKey(projectRef) : undefined);
+
+    if (!supabaseUrl) {
+      fail("Set SUPABASE_PROJECT_REF in .env.cloud or provide SUPABASE_URL there.");
+    }
+    if (!serviceRoleKey) {
+      fail(
+        "Set SUPABASE_SERVICE_ROLE_KEY in .env.cloud, or provide SUPABASE_PROJECT_REF and log in with the Supabase CLI.",
+      );
+    }
+    return { supabaseUrl, serviceRoleKey };
+  }
+
+  const localEnvironment = await loadEnvironmentFile(
+    ".env.catalog.local",
+    new Set(["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]),
+  );
+  const supabaseUrl = process.env.SUPABASE_URL || localEnvironment.get("SUPABASE_URL");
+  const serviceRoleKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    localEnvironment.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceRoleKey) {
+    fail(
+      "Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.catalog.local or the environment.",
+    );
+  }
+  return { supabaseUrl, serviceRoleKey };
 }
 
 async function validateCatalog(products) {
@@ -291,14 +373,8 @@ async function warnAboutUnclaimedFolders(products) {
   }
 }
 
-async function syncCatalog(products) {
-  await loadCatalogEnvironment();
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !serviceRoleKey) {
-    fail("Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.catalog.local or the environment.");
-  }
-
+async function syncCatalog(products, useCloud) {
+  const { supabaseUrl, serviceRoleKey } = await getCatalogCredentials(useCloud);
   const client = createClient(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
@@ -459,8 +535,10 @@ async function syncCatalog(products) {
 
 async function main() {
   const checkOnly = process.argv.includes("--check");
+  const useCloud =
+    process.argv.includes("--cloud") || process.env.npm_config_cloud === "true";
   if (!checkOnly && !process.argv.includes("--sync")) {
-    fail("Choose --check to validate the spreadsheet or --sync to import it.");
+    fail("Choose --check to validate the spreadsheet or --sync to import it. Add --cloud to target the hosted project.");
   }
 
   const products = parseProducts(await readFile(catalogPath, "utf8"));
@@ -472,7 +550,7 @@ async function main() {
     await validateCatalog(products);
     console.log(`Validated ${products.length} products. No database changes made.`);
   } else {
-    await syncCatalog(products);
+    await syncCatalog(products, useCloud);
   }
 }
 

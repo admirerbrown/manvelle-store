@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # One-command Supabase cloud setup for the Manvelle store.
 #
-# Does: link project, push migrations, push auth config, create admin users.
-# Does NOT: load catalog data, deploy the frontend, or set up your SMTP provider/DNS.
+# Does: link project, push migrations and auth config, create admin users, and sync the catalog.
+# Does NOT: deploy the frontend or set up your SMTP provider/DNS.
 #
-# Usage:   bash scripts/deploy-cloud.sh
+# Usage:   bash deploy-cloud.sh
 # Needs:   supabase CLI (logged in), node, and a .env.cloud file (see .env.cloud.example)
 set -euo pipefail
 
@@ -31,8 +31,9 @@ if [ "${MAJOR:-0}" -ge 3 ]; then REMOTE_FLAG="--remote"; else REMOTE_FLAG=""; fi
 echo
 echo "This will change the HOSTED Supabase project: $SUPABASE_PROJECT_REF"
 echo "  1. push database migrations"
-echo "  2. push auth config from the [remotes.production] block in supabase/config.toml"
-echo "  3. create admin users: $ADMIN_EMAILS"
+echo "  2. sync catalog products and images"
+echo "  3. push auth config from the [remotes.production] block in supabase/config.toml"
+echo "  4. create admin users: $ADMIN_EMAILS"
 echo
 read -r -p "Type the project ref to continue: " CONFIRM
 [ "$CONFIRM" = "$SUPABASE_PROJECT_REF" ] || { echo "Aborted."; exit 1; }
@@ -42,6 +43,9 @@ supabase link --project-ref "$SUPABASE_PROJECT_REF"
 
 echo "==> Pushing migrations"
 supabase db push $REMOTE_FLAG --yes
+
+echo "==> Syncing catalog to the hosted project"
+node scripts/sync-catalog.mjs --sync --cloud
 
 if [ "${MAJOR:-0}" -ge 3 ]; then
   echo "==> Config differences (review before they are applied)"
@@ -77,4 +81,4 @@ echo "Done. Put these in your frontend host's environment variables:"
 echo "  VITE_SUPABASE_URL=https://${SUPABASE_PROJECT_REF}.supabase.co"
 echo "  VITE_SUPABASE_ANON_KEY=${ANON_KEY}"
 echo
-echo "Still manual: load the catalog data, deploy the frontend, verify your SMTP domain."
+echo "Still manual: deploy the frontend and verify your SMTP domain."
