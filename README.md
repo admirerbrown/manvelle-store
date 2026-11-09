@@ -33,6 +33,8 @@ The Supabase example values are placeholders for local development. `VITE_WHATSA
 | --- | --- |
 | `npm run dev` | Start the Vite development server |
 | `npm run build` | Type-check and create the static production build in `dist/` |
+| `./check-build.sh` | Verify `.env.production`, confirm the hosted catalogue has an active product, validate catalog files, and build the storefront |
+| `./check-build.sh --preview` | Run the same checks, then serve the production build locally |
 | `npm run preview` | Preview the built site locally |
 | `npm run typecheck` | Run the TypeScript project checks |
 | `npm run catalog:validate` | Validate product data, categories, sizes, and image folders without database changes |
