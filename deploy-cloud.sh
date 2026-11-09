@@ -20,9 +20,21 @@ fi
 : "${ADMIN_EMAILS:?Set ADMIN_EMAILS in .env.cloud (comma separated)}"
 : "${SMTP_PASS:?Set SMTP_PASS in .env.cloud (SMTP provider password or API key)}"
 
-command -v supabase >/dev/null || { echo "supabase CLI not found"; exit 1; }
 command -v node >/dev/null || { echo "node not found"; exit 1; }
 [ -f supabase/config.toml ] || { echo "Run this from the project root (supabase/config.toml not found)"; exit 1; }
+
+if command -v supabase >/dev/null 2>&1; then
+  SUPABASE_BIN="$(command -v supabase)"
+elif [ -x node_modules/.bin/supabase ]; then
+  SUPABASE_BIN="node_modules/.bin/supabase"
+else
+  echo "Supabase CLI not found. Run npm install to install the project dependency, or install it globally."
+  exit 1
+fi
+
+supabase() {
+  "$SUPABASE_BIN" "$@"
+}
 
 # CLI v3 needs --remote for hosted commands. Older versions do not know that flag.
 MAJOR="$(supabase --version | grep -oE '[0-9]+' | head -n1)"

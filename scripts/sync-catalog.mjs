@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { execFile } from "node:child_process";
-import { readdir, readFile } from "node:fs/promises";
+import { access, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
@@ -261,8 +261,17 @@ async function loadEnvironmentFile(fileName, allowedKeys) {
 async function getCloudServiceRoleKey(projectRef) {
   let stdout;
   try {
+    let supabaseCommand = "supabase";
+    try {
+      await access(path.join(projectRoot, "node_modules", ".bin", "supabase"));
+      supabaseCommand = path.join(projectRoot, "node_modules", ".bin", "supabase");
+    } catch (error) {
+      if (error.code !== "ENOENT") {
+        throw error;
+      }
+    }
     ({ stdout } = await execFileAsync(
-      "supabase",
+      supabaseCommand,
       ["projects", "api-keys", "--project-ref", projectRef, "-o", "json"],
       { cwd: projectRoot, maxBuffer: 1024 * 1024 },
     ));
@@ -314,6 +323,11 @@ async function getCatalogCredentials(useCloud) {
     if (!serviceRoleKey) {
       fail(
         "Set SUPABASE_SERVICE_ROLE_KEY in .env.cloud, or provide SUPABASE_PROJECT_REF and log in with the Supabase CLI.",
+      );
+    }
+    if (serviceRoleKey.startsWith("sb_publishable_")) {
+      fail(
+        "The cloud catalog key is a publishable key, not a server-side key. Remove it from SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SECRET_KEY in .env.cloud; use a service_role or sb_secret key, or omit it and let the Supabase CLI fetch the service_role key.",
       );
     }
     return { supabaseUrl, serviceRoleKey };

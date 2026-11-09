@@ -53,10 +53,12 @@ code from `development` to `main`. The hosted database and static storefront
 are deployed separately:
 
 1. **Set up Supabase and sync the catalog.** Copy `.env.cloud.example` to the
-   ignored `.env.cloud` and fill in its required values. Log in to the Supabase
-   CLI, then run `bash deploy-cloud.sh` from the repository root. Review the
-   project-ref confirmation before continuing. The script links the project,
-   pushes migrations, syncs products and images, and configures admin access.
+   ignored `.env.cloud` and fill in its required values. After `npm install`,
+   log in with `./node_modules/.bin/supabase login`, then run
+   `./deploy-cloud.sh` from the repository root. Review the project-ref
+   confirmation before continuing. The script uses a global Supabase CLI if
+   available, otherwise the project-local CLI. It links the project, pushes
+   migrations, syncs products and images, and configures admin access.
    Supabase CLI v3 also asks whether to apply the auth configuration. The
    script does not deploy the frontend or configure your SMTP provider/DNS.
 2. **Configure the production frontend.** Create the ignored `.env.production`
@@ -143,7 +145,7 @@ Image file names identify color choices on each product page. Customers choose
 a color image and size before adding that combination to their bag; the
 WhatsApp order message includes the chosen image's public URL.
 
-Run `npm run catalog:validate` to check the spreadsheet and its image mappings without changing Supabase. To import or update products locally, set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in an ignored `.env.catalog.local` file (copy [.env.catalog.example](./.env.catalog.example) as a starting point), then run `npm run sync-catalog` (or the existing `npm run catalog:sync` alias). To import into the hosted project configured in `.env.cloud`, run `npm run sync-catalog -- --cloud`; the `--` forwards the cloud option to the script. It uses `SUPABASE_PROJECT_REF` to select the project and fetches its service-role key through your authenticated Supabase CLI session. Alternatively, set `SUPABASE_SERVICE_ROLE_KEY` in `.env.cloud`. The importer upserts products, sizes, and image mappings, uploads the images to the public Storage bucket, deactivates sizes and images removed from the spreadsheet/folder, and does not delete old image files. Product availability is binary; catalog-managed size rows do not claim a stock quantity. Never put the service-role key in a `VITE_` variable, frontend file, or source control.
+Run `npm run catalog:validate` to check the spreadsheet and its image mappings without changing Supabase. To import or update products locally, set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in an ignored `.env.catalog.local` file (copy [.env.catalog.example](./.env.catalog.example) as a starting point), then run `npm run sync-catalog` (or the existing `npm run catalog:sync` alias). To import into the hosted project configured in `.env.cloud`, run `npm run sync-catalog -- --cloud`; the `--` forwards the cloud option to the script. It uses `SUPABASE_PROJECT_REF` to select the project and fetches its service-role key through your authenticated Supabase CLI session. Alternatively, set `SUPABASE_SERVICE_ROLE_KEY` in `.env.cloud` to a server-side `service_role` or `sb_secret` key, never the anon/publishable key. The importer upserts products, sizes, and image mappings, uploads the images to the public Storage bucket, deactivates sizes and images removed from the spreadsheet/folder, and does not delete old image files. Product availability is binary; catalog-managed size rows do not claim a stock quantity. Never put the service-role key in a `VITE_` variable, frontend file, or source control.
 
 ### Storefront analytics and privacy
 
