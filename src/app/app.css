@@ -1848,6 +1848,7 @@ body {
 
 .catalogue-section {
   margin-top: 3.25rem;
+  margin-bottom: 5rem;
   padding: 2rem 0 2.25rem;
   border-top: 1px solid #d8ddd9;
   border-bottom: 1px solid #d8ddd9;
@@ -3762,6 +3763,26 @@ body {
   --summary-line: #e3e3e0;
   background: var(--summary-bg);
   box-shadow: inset 0 3px 0 var(--lime);
+}
+
+.storefront {
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+  flex-direction: column;
+}
+
+.storefront > main {
+  flex: 1 0 auto;
+}
+
+.store-footer {
+  display: block;
+  width: 100vw;
+  flex: none;
+  margin: auto 0 0 calc(50% - 50vw);
+  padding: 0;
+  border: 0;
 }
 
 .bag-summary__totals dt,

@@ -892,11 +892,12 @@ export function App() {
                     your bag. Checkout is quick and does not require an account.
                   </p>
                 </details>
-                <details>
-                  <summary>How will delivery be confirmed?</summary>
+                <details id="delivery">
+                  <summary>How are delivery and payment arranged?</summary>
                   <p>
                     We will contact you on WhatsApp to confirm your delivery
-                    details and fee before sending your order.
+                    details and fee. Accra orders can be paid on delivery;
+                    payment for other areas is arranged before delivery.
                   </p>
                 </details>
                 <details>
@@ -923,9 +924,9 @@ export function App() {
         )}
       </main>
 
-      <footer className="store-footer">
+      <div className="store-footer">
         <StoreFooter />
-      </footer>
+      </div>
     </div>
   );
 }

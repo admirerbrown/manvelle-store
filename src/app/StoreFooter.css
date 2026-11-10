@@ -66,13 +66,18 @@
 }
 
 .site-footer {
-  margin-top: 1rem;
-  margin-bottom: 1.5rem;
-  padding: 3rem 2rem 1.5rem;
-  border-radius: 14px;
+  margin: 0;
+  padding: 3rem 0 1.5rem;
   background: #111;
   color: #c9c9c2;
   font-size: 0.9rem;
+}
+
+.site-footer__grid,
+.site-footer__bottom {
+  width: min(100% - 2.5rem, 1180px);
+  margin-right: auto;
+  margin-left: auto;
 }
 
 .site-footer__grid {
@@ -96,7 +101,9 @@
 }
 
 .site-footer__cta {
-  display: inline-block;
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
   padding: 0.7rem 1.1rem;
   border-radius: 999px;
   background: #9bc53d;
@@ -179,16 +186,107 @@
   }
 
   .site-footer {
-    padding: 2rem 1.25rem 1.25rem;
-    padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+    padding: 1.75rem 0 max(1rem, env(safe-area-inset-bottom));
+  }
+
+  .site-footer__grid,
+  .site-footer__bottom {
+    width: min(100% - 2rem, 1180px);
   }
 
   .site-footer__grid {
     grid-template-columns: 1fr 1fr;
-    gap: 2rem 1.25rem;
+    gap: 1.25rem 1rem;
   }
 
   .site-footer__brand {
     grid-column: 1 / -1;
+  }
+
+  .site-footer__logo {
+    margin-bottom: 0.4rem;
+    font-size: 1.35rem;
+  }
+
+  .site-footer__tagline {
+    max-width: 28rem;
+    margin-bottom: 0.9rem;
+    font-size: 0.84rem;
+    line-height: 1.5;
+  }
+
+  .site-footer__column {
+    gap: 0.35rem;
+  }
+
+  .site-footer__column h3 {
+    margin-bottom: 0.25rem;
+  }
+
+  .site-footer__column > a {
+    display: inline-flex;
+    min-height: 2.5rem;
+    align-items: center;
+  }
+
+  .site-footer__find-us {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 0.35rem 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #2c2c2c;
+  }
+
+  .site-footer__find-us h3 {
+    grid-column: 1 / -1;
+  }
+
+  .site-footer__socials {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    margin-top: 0;
+  }
+
+  .site-footer__socials a {
+    min-height: 2.5rem;
+  }
+
+  .site-footer__bottom {
+    gap: 0.35rem 1rem;
+    margin-top: 1.25rem;
+    padding-top: 0.85rem;
+    font-size: 0.72rem;
+  }
+}
+
+@media (max-width: 400px) {
+  .site-footer__grid,
+  .site-footer__bottom {
+    width: min(100% - 1.5rem, 1180px);
+  }
+
+  .site-footer__grid {
+    gap: 1rem 0.65rem;
+  }
+
+  .site-footer__column h3 {
+    font-size: 0.7rem;
+  }
+
+  .site-footer__column,
+  .site-footer__socials {
+    font-size: 0.82rem;
+  }
+
+  .site-footer__find-us {
+    grid-template-columns: 1fr;
+    gap: 0.3rem;
+  }
+
+  .site-footer__find-us h3 {
+    grid-column: auto;
   }
 }
