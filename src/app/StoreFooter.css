@@ -1,0 +1,194 @@
+/* Footer and FAQ styles. Every class starts with "site-faq" or "site-footer",
+   so nothing here can change how any other part of the store looks. */
+
+.site-faq {
+  display: grid;
+  grid-template-columns: minmax(14rem, 0.9fr) minmax(0, 1.6fr);
+  gap: 2rem 4rem;
+  margin-top: 4rem;
+  padding: 3rem 0;
+  border-top: 1px solid #dedede;
+  color: #111;
+}
+
+.site-faq__eyebrow {
+  margin: 0 0 0.6rem;
+  color: #65695f;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.site-faq h2 {
+  margin: 0;
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.site-faq__list details {
+  border-bottom: 1px solid #dedede;
+}
+
+.site-faq__list summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 0;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+
+.site-faq__list summary::-webkit-details-marker {
+  display: none;
+}
+
+.site-faq__list summary::after {
+  content: "+";
+  flex: none;
+  font-size: 1.3rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.site-faq__list details[open] summary::after {
+  content: "\2212";
+}
+
+.site-faq__list details p {
+  margin: 0 0 1.2rem;
+  max-width: 36rem;
+  color: #55594f;
+  line-height: 1.6;
+}
+
+.site-footer {
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 3rem 2rem 1.5rem;
+  border-radius: 14px;
+  background: #111;
+  color: #c9c9c2;
+  font-size: 0.9rem;
+}
+
+.site-footer__grid {
+  display: grid;
+  grid-template-columns: minmax(14rem, 1.4fr) repeat(3, minmax(8rem, 1fr));
+  gap: 2.5rem;
+}
+
+.site-footer__logo {
+  margin: 0 0 0.8rem;
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.site-footer__tagline {
+  margin: 0 0 1.4rem;
+  max-width: 20rem;
+  line-height: 1.6;
+}
+
+.site-footer__cta {
+  display: inline-block;
+  padding: 0.7rem 1.1rem;
+  border-radius: 999px;
+  background: #9bc53d;
+  color: #111;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.site-footer__cta:hover,
+.site-footer__cta:focus-visible {
+  background: #b3d85a;
+}
+
+.site-footer__column {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.65rem;
+}
+
+.site-footer__column h3 {
+  margin: 0 0 0.4rem;
+  color: #fff;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.site-footer__column p {
+  margin: 0;
+}
+
+.site-footer__column a {
+  color: #c9c9c2;
+  text-decoration: none;
+}
+
+.site-footer__column a:hover,
+.site-footer__column a:focus-visible {
+  color: #9bc53d;
+}
+
+.site-footer__socials {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 0.3rem;
+}
+
+.site-footer__socials a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.site-footer__socials svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  fill: currentColor;
+}
+
+.site-footer__bottom {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 1.5rem;
+  margin-top: 2.5rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid #2c2c2c;
+  color: #8f8f88;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 860px) {
+  .site-faq {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    margin-top: 3rem;
+    padding: 2rem 0;
+  }
+
+  .site-footer {
+    padding: 2rem 1.25rem 1.25rem;
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+  }
+
+  .site-footer__grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem 1.25rem;
+  }
+
+  .site-footer__brand {
+    grid-column: 1 / -1;
+  }
+}

@@ -31,6 +31,7 @@ import { CheckoutForm } from "../features/checkout/CheckoutForm";
 import type { GuestOrderConfirmation } from "../features/checkout/checkout.service";
 import { formatGhs } from "../lib/format-currency";
 import categoryData from "../../catalog/category.json";
+import { StoreFooter } from "./StoreFooter";
 
 const minimumProductVariantCount = 4;
 
@@ -501,7 +502,9 @@ export function App() {
           >
             Home
           </Link>
-          <div className={`store-nav__dropdown${isMobileCategoriesOpen ? " store-nav__dropdown--open" : ""}`}>
+          <div
+            className={`store-nav__dropdown${isMobileCategoriesOpen ? " store-nav__dropdown--open" : ""}`}
+          >
             <button
               className="store-nav__trigger"
               type="button"
@@ -511,46 +514,45 @@ export function App() {
             >
               Categories <span aria-hidden="true">⌄</span>
             </button>
-            <div
-              className="store-nav__menu"
-              id="mobile-category-links"
-            >
+            <div className="store-nav__menu" id="mobile-category-links">
               <div className="store-nav__menu-inner">
-              <div className="store-nav__groups">
-                {dropdownGroups.map((category) => (
-                  <div className="store-nav__menu-group" key={category.id}>
-                    <Link
-                      className="store-nav__group-title"
-                      to={paths.collection(category.id)}
-                    >
-                      {category.name}
-                    </Link>
-                    <div className="store-nav__submenu">
-                      {category.subcategories.map((subcategory) => (
-                        <Link
-                          key={`${category.id}/${subcategory.id}`}
-                          to={paths.collection(`${category.id}/${subcategory.id}`)}
-                        >
-                          {subcategory.name}
-                        </Link>
-                      ))}
+                <div className="store-nav__groups">
+                  {dropdownGroups.map((category) => (
+                    <div className="store-nav__menu-group" key={category.id}>
+                      <Link
+                        className="store-nav__group-title"
+                        to={paths.collection(category.id)}
+                      >
+                        {category.name}
+                      </Link>
+                      <div className="store-nav__submenu">
+                        {category.subcategories.map((subcategory) => (
+                          <Link
+                            key={`${category.id}/${subcategory.id}`}
+                            to={paths.collection(
+                              `${category.id}/${subcategory.id}`,
+                            )}
+                          >
+                            {subcategory.name}
+                          </Link>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-              {dropdownSingles.length > 0 && (
-                <div className="store-nav__menu-footer">
-                  {dropdownSingles.map((category) => (
-                    <Link
-                      className="store-nav__footer-link"
-                      key={category.id}
-                      to={paths.collection(category.id)}
-                    >
-                      {category.name}
-                    </Link>
                   ))}
                 </div>
-              )}
+                {dropdownSingles.length > 0 && (
+                  <div className="store-nav__menu-footer">
+                    {dropdownSingles.map((category) => (
+                      <Link
+                        className="store-nav__footer-link"
+                        key={category.id}
+                        to={paths.collection(category.id)}
+                      >
+                        {category.name}
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -636,7 +638,10 @@ export function App() {
               <HeroCarousel slides={heroSlides} />
             ) : (
               isLoading && (
-                <div className="home-hero home-hero--loading" aria-hidden="true" />
+                <div
+                  className="home-hero home-hero--loading"
+                  aria-hidden="true"
+                />
               )
             )}
 
@@ -674,7 +679,9 @@ export function App() {
                       className="text-button"
                       type="button"
                       disabled={isLoading}
-                      onClick={() => setRefreshVersion((version) => version + 1)}
+                      onClick={() =>
+                        setRefreshVersion((version) => version + 1)
+                      }
                     >
                       Refresh availability
                     </button>
@@ -683,12 +690,18 @@ export function App() {
 
                 {renderCatalogueStatus()}
 
-                {!catalogueError && !isLoading && visibleProducts.length > 0 && (
-                  renderProductGrid(visibleProducts)
-                )}
-                {!catalogueError && !isLoading && productsWithEnoughSizes.length > 0 && visibleProducts.length === 0 && (
-                  <p className="status-message">No products are assigned to this category yet.</p>
-                )}
+                {!catalogueError &&
+                  !isLoading &&
+                  visibleProducts.length > 0 &&
+                  renderProductGrid(visibleProducts)}
+                {!catalogueError &&
+                  !isLoading &&
+                  productsWithEnoughSizes.length > 0 &&
+                  visibleProducts.length === 0 && (
+                    <p className="status-message">
+                      No products are assigned to this category yet.
+                    </p>
+                  )}
               </section>
             )}
           </>
@@ -751,15 +764,21 @@ export function App() {
         )}
 
         {route.name === "confirmation" && confirmation && (
-          <section className="confirmation" aria-labelledby="confirmation-title">
+          <section
+            className="confirmation"
+            aria-labelledby="confirmation-title"
+          >
             <p className="eyebrow">Order received</p>
             <h1 id="confirmation-title">Thank you for your order.</h1>
             <p>
               We’ll reach out to you on WhatsApp to confirm your delivery
               details and let you know the cost of delivery.
             </p>
-            <ul className="confirmation__items" aria-label="Items in your order">
-              {confirmation.items.map((item, index) => (
+            <ul
+              className="confirmation__items"
+              aria-label="Items in your order"
+            >
+              {confirmation.items.map((item, index) =>
                 (() => {
                   const selectedLines = confirmationCart
                     .filter((line) => {
@@ -808,8 +827,8 @@ export function App() {
                       <strong>{formatGhs(item.subtotal)}</strong>
                     </li>
                   );
-                })()
-              ))}
+                })(),
+              )}
             </ul>
             <dl className="confirmation__details">
               <div>
@@ -856,29 +875,48 @@ export function App() {
 
         {(route.name === "faq" || route.name === "contact") && (
           <section className="info-page" aria-labelledby="info-page-heading">
-            <p className="eyebrow">{route.name === "faq" ? "Helpful answers" : "We are here to help"}</p>
+            <p className="eyebrow">
+              {route.name === "faq" ? "Helpful answers" : "We are here to help"}
+            </p>
             <h1 id="info-page-heading">
-              {route.name === "faq" ? "Frequently asked questions" : "Contact Manvelle"}
+              {route.name === "faq"
+                ? "Frequently asked questions"
+                : "Contact Manvelle"}
             </h1>
             {route.name === "faq" ? (
               <div className="info-page__content">
                 <details open>
                   <summary>How do I place an order?</summary>
-                  <p>Choose a style, select your colour and size, then add it to your bag. Checkout is quick and does not require an account.</p>
+                  <p>
+                    Choose a style, select your colour and size, then add it to
+                    your bag. Checkout is quick and does not require an account.
+                  </p>
                 </details>
                 <details>
                   <summary>How will delivery be confirmed?</summary>
-                  <p>We will contact you on WhatsApp to confirm your delivery details and fee before sending your order.</p>
+                  <p>
+                    We will contact you on WhatsApp to confirm your delivery
+                    details and fee before sending your order.
+                  </p>
                 </details>
                 <details>
                   <summary>Can I order more than one colour?</summary>
-                  <p>Yes. Add each colour and size combination separately to your bag.</p>
+                  <p>
+                    Yes. Add each colour and size combination separately to your
+                    bag.
+                  </p>
                 </details>
               </div>
             ) : (
               <div className="info-page__content">
-                <p>Questions about sizing, availability or delivery? We would love to hear from you.</p>
-                <p>Place an order to start a WhatsApp conversation with our team, or use the details shared in your order confirmation.</p>
+                <p>
+                  Questions about sizing, availability or delivery? We would
+                  love to hear from you.
+                </p>
+                <p>
+                  Place an order to start a WhatsApp conversation with our team,
+                  or use the details shared in your order confirmation.
+                </p>
               </div>
             )}
           </section>
@@ -886,8 +924,7 @@ export function App() {
       </main>
 
       <footer className="store-footer">
-        <span>Manvelle Menswear Ghana</span>
-        <span>Guest checkout - delivery confirmed on WhatsApp</span>
+        <StoreFooter />
       </footer>
     </div>
   );
