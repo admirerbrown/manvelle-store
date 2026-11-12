@@ -9,6 +9,7 @@ import {
   type GuestOrderInput,
 } from "./checkout.service";
 import { formatGhs } from "../../lib/format-currency";
+import { captureCheckoutAttribution } from "../analytics/consent";
 
 type CheckoutFormProps = {
   cart: CartLine[];
@@ -117,6 +118,7 @@ export function CheckoutForm({
           isAccra,
           acceptsAdvancePayment: !isAccra && acceptsAdvancePayment,
           items: cart.map((item) => ({ ...item })),
+          attribution: captureCheckoutAttribution(),
         },
       };
     }

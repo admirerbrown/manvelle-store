@@ -1,6 +1,14 @@
 import type { CartLine } from "../cart/cart.types";
 import { getSupabaseClient } from "../../lib/supabase/client";
 
+export type GuestOrderAttribution = {
+  fbp: string | null;
+  fbc: string | null;
+  pageUrl: string;
+  userAgent: string;
+  metaConsent: boolean;
+};
+
 export type GuestOrderInput = {
   customerName: string;
   customerPhone: string;
@@ -9,6 +17,7 @@ export type GuestOrderInput = {
   isAccra: boolean;
   acceptsAdvancePayment: boolean;
   items: CartLine[];
+  attribution: GuestOrderAttribution;
 };
 
 export type GuestOrderConfirmation = {
@@ -66,6 +75,11 @@ export async function createGuestOrder(
       p_is_accra: order.isAccra,
       p_accepts_advance_payment: order.acceptsAdvancePayment,
       p_items: aggregateOrderItems(order.items),
+      p_fbp: order.attribution.fbp,
+      p_fbc: order.attribution.fbc,
+      p_page_url: order.attribution.pageUrl,
+      p_user_agent: order.attribution.userAgent,
+      p_meta_consent: order.attribution.metaConsent,
     });
 
     if (error) {

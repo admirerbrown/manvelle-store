@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { getCategoryLabel, paths, resolveRoute } from "./routes";
-import type { StorefrontPage } from "../features/analytics/analytics.service";
+import type {
+  AnalyticsItem,
+  StorefrontPage,
+} from "../features/analytics/analytics.service";
+import {
+  consentChangeEvent,
+  getAnalyticsConsent,
+} from "../features/analytics/consent";
 import {
   getCatalogueProductBySlug,
   getCatalogueProducts,
@@ -22,6 +29,7 @@ import {
 import { ProductCard } from "../features/catalogue/ProductCard";
 import { ProductPage } from "../features/catalogue/ProductPage";
 import { trackStorefrontEvent } from "../features/analytics/analytics.service";
+import { ConsentBanner } from "../features/analytics/ConsentBanner";
 import { CartPanel, type CartItemView } from "../features/cart/CartPanel";
 import {
   getCartLineKey,
@@ -43,6 +51,29 @@ const dropdownGroups = categoryData.categories.filter(
 const dropdownSingles = categoryData.categories.filter(
   (category) => category.subcategories.length === 0,
 );
+
+function getAnalyticsItems(
+  cart: CartLine[],
+  productsById: ReadonlyMap<string, CatalogueProduct>,
+): AnalyticsItem[] {
+  return cart.flatMap((line) => {
+    const product = productsById.get(line.productId);
+    const variant = product?.variants.find(
+      (candidate) => candidate.id === line.variantId,
+    );
+    return product
+      ? [
+          {
+            item_id: product.id,
+            item_name: product.name,
+            ...(variant ? { item_variant: variant.size } : {}),
+            price: product.price,
+            quantity: line.quantity,
+          },
+        ]
+      : [];
+  });
+}
 
 export function App() {
   const [products, setProducts] = useState<CatalogueProduct[]>([]);
@@ -66,8 +97,17 @@ export function App() {
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileCategoriesOpen, setIsMobileCategoriesOpen] = useState(false);
-  const lastTrackedPage = useRef<StorefrontPage | null>(null);
+  const lastTrackedLocation = useRef<string | null>(null);
   const handledHash = useRef("");
+  const [analyticsConsent, setAnalyticsConsent] = useState(
+    getAnalyticsConsent,
+  );
+
+  useEffect(() => {
+    const syncConsent = () => setAnalyticsConsent(getAnalyticsConsent());
+    window.addEventListener(consentChangeEvent, syncConsent);
+    return () => window.removeEventListener(consentChangeEvent, syncConsent);
+  }, []);
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
@@ -88,12 +128,16 @@ export function App() {
   }, [route.name, location.pathname]);
 
   useEffect(() => {
-    if (trackedPage === null || lastTrackedPage.current === trackedPage) {
+    if (trackedPage === null || lastTrackedLocation.current === location.key) {
       return;
     }
-    lastTrackedPage.current = trackedPage;
-    trackStorefrontEvent({ name: "page_view", page: trackedPage });
-  }, [trackedPage]);
+    lastTrackedLocation.current = location.key;
+    trackStorefrontEvent({
+      name: "page_view",
+      page: trackedPage,
+      pageLocation: `${window.location.origin}${location.pathname}`,
+    });
+  }, [trackedPage, location.key, location.pathname]);
 
   useEffect(() => {
     let isCurrent = true;
@@ -213,14 +257,17 @@ export function App() {
     route.name === "product"
       ? products.find((product) => product.slug === route.slug)
       : undefined;
-  const selectedProductId = selectedProduct?.id;
-
   // Fires for in-app clicks and for direct visits / refreshes of /products/<slug>.
   useEffect(() => {
-    if (selectedProductId) {
-      trackStorefrontEvent({ name: "product_view", productId: selectedProductId });
+    if (selectedProduct) {
+      trackStorefrontEvent({
+        name: "product_view",
+        productId: selectedProduct.id,
+        productName: selectedProduct.name,
+        price: selectedProduct.price,
+      });
     }
-  }, [selectedProductId]);
+  }, [selectedProduct]);
 
   const cartItems: CartItemView[] = useMemo(
     () =>
@@ -351,6 +398,9 @@ export function App() {
       name: "add_to_cart",
       productId: product.id,
       variantId: variant.id,
+      productName: product.name,
+      variantName: variant.size,
+      price: product.price,
       quantity: 1,
     });
     setCartMessage(`${product.name}, size ${variant.size}, added to your bag.`);
@@ -377,6 +427,17 @@ export function App() {
     trackStorefrontEvent({
       name: "order_confirmed",
       orderNumber: order.orderNumber,
+      items: order.items.map((item) => ({
+        item_id:
+          [...productsById.values()].find(
+            (product) => product.name === item.productName,
+          )?.id ?? item.productName,
+        item_name: item.productName,
+        item_variant: item.size,
+        price: item.unitPrice,
+        quantity: item.quantity,
+      })),
+      value: order.total,
     });
     setConfirmation(order);
     setConfirmationCart(submittedItems);
@@ -403,7 +464,11 @@ export function App() {
     if (!canProceedToCheckout) {
       return;
     }
-    trackStorefrontEvent({ name: "checkout_started" });
+    trackStorefrontEvent({
+      name: "checkout_started",
+      items: getAnalyticsItems(cart, productsById),
+      value: cartSubtotal ?? 0,
+    });
     navigate(paths.checkout);
   }
 
@@ -927,6 +992,7 @@ export function App() {
       <div className="store-footer">
         <StoreFooter />
       </div>
+      <ConsentBanner />
     </div>
   );
 }

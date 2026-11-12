@@ -21,6 +21,13 @@ const input: GuestOrderInput = {
   isAccra: true,
   acceptsAdvancePayment: false,
   items: [{ productId: "p1", variantId: "v1", imageId: null, quantity: 2 }],
+  attribution: {
+    fbp: null,
+    fbc: null,
+    pageUrl: "https://manvelle.example/checkout",
+    userAgent: "test browser",
+    metaConsent: false,
+  },
 };
 
 describe("createGuestOrder", () => {

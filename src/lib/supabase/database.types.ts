@@ -73,6 +73,8 @@ type OrderRow = {
   order_status: "pending" | "confirmed" | "out_for_delivery" | "delivered" | "completed" | "cancelled" | "failed_delivery";
   created_at: string;
   updated_at: string;
+  meta_purchase_sent_at: string | null;
+  meta_purchase_claimed_at: string | null;
 };
 
 type OrderItemRow = {
@@ -153,12 +155,29 @@ export type Database = {
           p_is_accra: boolean;
           p_accepts_advance_payment: boolean;
           p_items: Json;
+          p_fbp: string | null;
+          p_fbc: string | null;
+          p_page_url: string;
+          p_user_agent: string;
+          p_meta_consent: boolean;
         };
         Returns: Json;
       };
       is_admin: {
         Args: Record<string, never>;
         Returns: boolean;
+      };
+      claim_meta_purchase: {
+        Args: { p_order_id: string };
+        Returns: Json;
+      };
+      mark_meta_purchase_sent: {
+        Args: { p_order_id: string };
+        Returns: undefined;
+      };
+      release_meta_purchase_claim: {
+        Args: { p_order_id: string };
+        Returns: undefined;
       };
     };
     Enums: { [_ in never]: never };
