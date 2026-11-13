@@ -146,21 +146,32 @@ export type Database = {
         Returns: undefined;
       };
       create_guest_order: {
-        Args: {
-          p_idempotency_key: string;
-          p_customer_name: string;
-          p_customer_phone: string;
-          p_delivery_area: string;
-          p_delivery_address: string;
-          p_is_accra: boolean;
-          p_accepts_advance_payment: boolean;
-          p_items: Json;
-          p_fbp: string | null;
-          p_fbc: string | null;
-          p_page_url: string;
-          p_user_agent: string;
-          p_meta_consent: boolean;
-        };
+        Args:
+          | {
+              p_idempotency_key: string;
+              p_customer_name: string;
+              p_customer_phone: string;
+              p_delivery_area: string;
+              p_delivery_address: string;
+              p_is_accra: boolean;
+              p_accepts_advance_payment: boolean;
+              p_items: Json;
+              p_fbp: string | null;
+              p_fbc: string | null;
+              p_page_url: string;
+              p_user_agent: string;
+              p_meta_consent: boolean;
+            }
+          | {
+              p_idempotency_key: string;
+              p_customer_name: string;
+              p_customer_phone: string;
+              p_delivery_area: string;
+              p_delivery_address: string;
+              p_is_accra: boolean;
+              p_accepts_advance_payment: boolean;
+              p_items: Json;
+            };
         Returns: Json;
       };
       is_admin: {

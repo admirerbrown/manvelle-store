@@ -66,7 +66,7 @@ export async function createGuestOrder(
   }
 
   try {
-    const { data, error } = await client.rpc("create_guest_order", {
+    const orderArgs = {
       p_idempotency_key: idempotencyKey,
       p_customer_name: order.customerName,
       p_customer_phone: order.customerPhone,
@@ -75,6 +75,9 @@ export async function createGuestOrder(
       p_is_accra: order.isAccra,
       p_accepts_advance_payment: order.acceptsAdvancePayment,
       p_items: aggregateOrderItems(order.items),
+    };
+    const { data, error } = await client.rpc("create_guest_order", {
+      ...orderArgs,
       p_fbp: order.attribution.fbp,
       p_fbc: order.attribution.fbc,
       p_page_url: order.attribution.pageUrl,
@@ -82,15 +85,21 @@ export async function createGuestOrder(
       p_meta_consent: order.attribution.metaConsent,
     });
 
-    if (error) {
+    const result =
+      error?.code === "PGRST202"
+        ? await retryWithoutAttribution(client, orderArgs)
+        : { data, error };
+
+    if (result.error) {
+      const { error: rpcError } = result;
       throw new GuestOrderSubmissionError(
-        getCustomerErrorMessage(error.message),
-        error.code === "22023",
-        { cause: error },
+        getCustomerErrorMessage(rpcError.message),
+        rpcError.code === "22023",
+        { cause: rpcError },
       );
     }
 
-    return parseConfirmation(data);
+    return parseConfirmation(result.data);
   } catch (cause) {
     if (cause instanceof GuestOrderSubmissionError) {
       throw cause;
@@ -102,6 +111,25 @@ export async function createGuestOrder(
       { cause },
     );
   }
+}
+
+async function retryWithoutAttribution(
+  client: ReturnType<typeof getSupabaseClient>,
+  orderArgs: {
+    p_idempotency_key: string;
+    p_customer_name: string;
+    p_customer_phone: string;
+    p_delivery_area: string;
+    p_delivery_address: string;
+    p_is_accra: boolean;
+    p_accepts_advance_payment: boolean;
+    p_items: ReturnType<typeof aggregateOrderItems>;
+  },
+) {
+  console.warn(
+    "Checkout attribution is not available yet; retrying order creation without it.",
+  );
+  return client.rpc("create_guest_order", orderArgs);
 }
 
 function parseConfirmation(value: unknown): GuestOrderConfirmation {

@@ -137,5 +137,61 @@ describe("createGuestOrder", () => {
     await expect(createGuestOrder("key-1", input)).rejects.toMatchObject({
       message: "Enter your name using 2 to 120 characters.",
     });
+    expect(rpcMock).toHaveBeenCalledOnce();
+  });
+
+  it("retries the legacy RPC signature when attribution is not deployed", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    rpcMock
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          code: "PGRST202",
+          message: "Could not find the function in the schema cache.",
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          order_number: "MNV-1002",
+          subtotal: 100,
+          delivery_fee: 0,
+          total: 100,
+          payment_method: "cash_on_delivery",
+          is_accra: true,
+          delivery_area: "East Legon",
+          items: [
+            {
+              product_name: "Cargo Trousers",
+              size: "L",
+              unit_price: 50,
+              quantity: 2,
+              subtotal: 100,
+            },
+          ],
+        },
+        error: null,
+      });
+
+    const result = await createGuestOrder("key-2", input);
+
+    expect(result.orderNumber).toBe("MNV-1002");
+    expect(rpcMock).toHaveBeenNthCalledWith(
+      2,
+      "create_guest_order",
+      expect.objectContaining({
+        p_idempotency_key: "key-2",
+        p_customer_name: "Kofi Mensah",
+        p_items: [
+          {
+            product_id: "p1",
+            variant_id: "v1",
+            quantity: 2,
+          },
+        ],
+      }),
+    );
+    expect(rpcMock.mock.calls[1]?.[1]).not.toHaveProperty("p_meta_consent");
+    expect(warning).toHaveBeenCalledOnce();
+    warning.mockRestore();
   });
 });

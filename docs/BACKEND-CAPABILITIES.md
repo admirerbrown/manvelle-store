@@ -54,6 +54,9 @@ continue to use size-level quantities.
   not claim per-size quantities.
 - Retrying an order request with the same idempotency key returns the existing
   order rather than creating a duplicate.
+- If the attribution-aware RPC signature is not yet available during a
+  deployment, checkout retries with the previous signature and the same
+  idempotency key; that order is created without attribution data.
 - Customers receive a limited confirmation summary. Public browser roles cannot
   directly read or modify orders or order items.
 - The WhatsApp handoff includes each selected product, size, chosen image-name
