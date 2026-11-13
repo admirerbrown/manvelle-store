@@ -1,0 +1,577 @@
+import { createClient } from "@supabase/supabase-js";
+import { execFile } from "node:child_process";
+import { access, readdir, readFile } from "node:fs/promises";
+import path from "node:path";
+import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
+import { matchProductFolder } from "../src/lib/catalog-folder.js";
+
+const execFileAsync = promisify(execFile);
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const catalogPath = path.join(projectRoot, "catalog", "products.csv");
+const categoryPath = path.join(projectRoot, "catalog", "category.json");
+const imageRoot = path.join(projectRoot, "catalog");
+const bucketName = "product-images";
+
+function fail(message) {
+  throw new Error(message);
+}
+
+function parseCsv(csv) {
+  const rows = [];
+  let row = [];
+  let field = "";
+  let quoted = false;
+
+  for (let index = 0; index < csv.length; index += 1) {
+    const character = csv[index];
+    if (quoted) {
+      if (character === '"' && csv[index + 1] === '"') {
+        field += '"';
+        index += 1;
+      } else if (character === '"') {
+        quoted = false;
+      } else {
+        field += character;
+      }
+    } else if (character === '"' && field.length === 0) {
+      quoted = true;
+    } else if (character === ",") {
+      row.push(field);
+      field = "";
+    } else if (character === "\n") {
+      row.push(field.replace(/\r$/, ""));
+      if (row.some((value) => value.trim())) {
+        rows.push(row);
+      }
+      row = [];
+      field = "";
+    } else {
+      field += character;
+    }
+  }
+
+  if (quoted) {
+    fail("The product spreadsheet contains an unterminated quoted field.");
+  }
+  if (field.length > 0 || row.length > 0) {
+    row.push(field.replace(/\r$/, ""));
+    if (row.some((value) => value.trim())) {
+      rows.push(row);
+    }
+  }
+  return rows;
+}
+
+function slugify(name) {
+  return name
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function loadCategoryIds() {
+  return readFile(categoryPath, "utf8").then((contents) => {
+    const config = JSON.parse(contents);
+    return new Set(config.categories.flatMap((category) =>
+      category.subcategories.length > 0
+        ? category.subcategories.map((subcategory) => `${category.id}/${subcategory.id}`)
+        : [category.id],
+    ));
+  });
+}
+
+function parseProducts(csv) {
+  const rows = parseCsv(csv);
+  const headers = rows.shift();
+  const expectedHeaders = [
+    "name",
+    "description",
+    "key_features",
+    "available_sizes",
+    "availability",
+    "price",
+    "category",
+  ];
+
+  if (
+    !headers ||
+    headers.length !== expectedHeaders.length ||
+    headers.some((header, index) => header.trim() !== expectedHeaders[index])
+  ) {
+    fail(`Spreadsheet columns must be: ${expectedHeaders.join(", ")}.`);
+  }
+
+  const slugs = new Set();
+  return rows.map((values, index) => {
+    const line = index + 2;
+    if (values.length !== expectedHeaders.length) {
+      fail(`Spreadsheet row ${line} has ${values.length} columns; expected 7.`);
+    }
+
+    const [name, description, keyFeatures, sizesValue, availability, priceValue, category] =
+      values.map((value) => value.trim());
+    const slug = slugify(name);
+    const sizes = sizesValue
+      .split("|")
+      .map((size) => size.trim())
+      .filter(Boolean);
+    const price = Number(priceValue);
+
+    if (!name || !description || !slug || !keyFeatures || !category) {
+      fail(`Spreadsheet row ${line} must include a name, description, and key features.`);
+    }
+    if (slugs.has(slug)) {
+      fail(`Spreadsheet row ${line} repeats product name "${name}".`);
+    }
+    slugs.add(slug);
+    if (sizes.length < 4 || new Set(sizes).size !== sizes.length) {
+      fail(`Spreadsheet row ${line} must have at least four unique sizes separated by "|".`);
+    }
+    if (!["in-stock", "out-of-stock"].includes(availability)) {
+      fail(`Spreadsheet row ${line} availability must be "in-stock" or "out-of-stock".`);
+    }
+    if (!Number.isFinite(price) || price < 0) {
+      fail(`Spreadsheet row ${line} must have a non-negative numeric price in GHS.`);
+    }
+
+    return {
+      name,
+      slug,
+      description,
+      keyFeatures,
+      sizes,
+      availability,
+      price,
+      category,
+    };
+  });
+}
+
+async function listFolders(directory) {
+  try {
+    const entries = await readdir(directory, { withFileTypes: true });
+    return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
+  } catch {
+    return [];
+  }
+}
+
+// catalog/<category>/<subcategory>/<product-folder>/ — the folder is found with the
+// same rule the storefront uses (src/lib/catalog-folder.js), so the site and the
+// Supabase Storage upload always read the same directory.
+async function findImageDirectory(product) {
+  const categoryDirectory = path.join(imageRoot, ...product.category.split("/"));
+  const folderName = matchProductFolder(product.slug, await listFolders(categoryDirectory));
+  if (!folderName) {
+    fail(
+      `No image folder found for ${product.name}. Expected ` +
+        `${path.relative(projectRoot, path.join(categoryDirectory, product.slug))}/ ` +
+        `(or a folder using the same words, e.g. ${product.slug.split("-")[0]}-...) ` +
+        `containing one image per colour.`,
+    );
+  }
+  return { directory: path.join(categoryDirectory, folderName), folderName };
+}
+
+async function getImageInfo(filePath, folder) {
+  const bytes = await readFile(filePath);
+  let extension;
+  let contentType;
+
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    extension = ".jpeg";
+    contentType = "image/jpeg";
+  } else if (
+    bytes[0] === 0x89 &&
+    bytes.subarray(1, 4).toString("ascii") === "PNG"
+  ) {
+    extension = ".png";
+    contentType = "image/png";
+  } else if (bytes.subarray(0, 4).toString("ascii") === "RIFF" &&
+    bytes.subarray(8, 12).toString("ascii") === "WEBP") {
+    extension = ".webp";
+    contentType = "image/webp";
+  } else {
+    fail(`Unsupported or invalid product image: ${path.relative(projectRoot, filePath)}.`);
+  }
+
+  const relativeName = path
+    .relative(folder, filePath)
+    .split(path.sep)
+    .join("/");
+  const parsedName = path.parse(relativeName);
+  const fileName =
+    parsedName.ext.length > 0 ? relativeName : `${relativeName}${extension}`;
+
+  return { bytes, contentType, fileName };
+}
+
+async function listImages(folder) {
+  const images = [];
+
+  async function visit(directory) {
+    const entries = await readdir(directory, { withFileTypes: true });
+    for (const entry of entries) {
+      const entryPath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        await visit(entryPath);
+      } else if (entry.isFile()) {
+        images.push(await getImageInfo(entryPath, folder));
+      }
+    }
+  }
+
+  await visit(folder);
+  images.sort((first, second) =>
+    first.fileName.localeCompare(second.fileName, undefined, {
+      numeric: true,
+      sensitivity: "base",
+    }),
+  );
+  if (images.length === 0) {
+    fail(`No images found in ${path.relative(projectRoot, folder)}.`);
+  }
+  return images;
+}
+
+async function loadEnvironmentFile(fileName, allowedKeys) {
+  let contents;
+  try {
+    contents = await readFile(path.join(projectRoot, fileName), "utf8");
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return new Map();
+    }
+    throw error;
+  }
+
+  const values = new Map();
+  for (const line of contents.split(/\r?\n/)) {
+    const match = line.match(/^\s*([A-Z][A-Z0-9_]*)\s*=\s*(.*?)\s*$/);
+    if (match && allowedKeys.has(match[1])) {
+      values.set(match[1], match[2].replace(/^(['"])(.*)\1$/, "$2"));
+    }
+  }
+  return values;
+}
+
+async function getCloudServiceRoleKey(projectRef) {
+  let stdout;
+  try {
+    let supabaseCommand = "supabase";
+    try {
+      await access(path.join(projectRoot, "node_modules", ".bin", "supabase"));
+      supabaseCommand = path.join(projectRoot, "node_modules", ".bin", "supabase");
+    } catch (error) {
+      if (error.code !== "ENOENT") {
+        throw error;
+      }
+    }
+    ({ stdout } = await execFileAsync(
+      supabaseCommand,
+      ["projects", "api-keys", "--project-ref", projectRef, "-o", "json"],
+      { cwd: projectRoot, maxBuffer: 1024 * 1024 },
+    ));
+  } catch (error) {
+    throw new Error(
+      "Could not retrieve the cloud API key. Log in with the Supabase CLI or set SUPABASE_SERVICE_ROLE_KEY in .env.cloud.",
+      { cause: error },
+    );
+  }
+
+  let apiKeys;
+  try {
+    apiKeys = JSON.parse(stdout);
+  } catch (error) {
+    throw new Error("The Supabase CLI returned invalid API-key data.", { cause: error });
+  }
+  const serviceRoleKey = Array.isArray(apiKeys)
+    ? apiKeys.find((key) => key.name === "service_role")?.api_key
+    : undefined;
+  if (!serviceRoleKey) {
+    fail("The Supabase CLI did not return a service_role API key for the cloud project.");
+  }
+  return serviceRoleKey;
+}
+
+async function getCatalogCredentials(useCloud) {
+  if (useCloud) {
+    const cloudEnvironment = await loadEnvironmentFile(
+      ".env.cloud",
+      new Set([
+        "SUPABASE_PROJECT_REF",
+        "SUPABASE_URL",
+        "SUPABASE_SECRET_KEY",
+        "SUPABASE_SERVICE_ROLE_KEY",
+      ]),
+    );
+    const projectRef = cloudEnvironment.get("SUPABASE_PROJECT_REF");
+    const supabaseUrl =
+      cloudEnvironment.get("SUPABASE_URL") ??
+      (projectRef ? `https://${projectRef}.supabase.co` : undefined);
+    const serviceRoleKey =
+      cloudEnvironment.get("SUPABASE_SERVICE_ROLE_KEY") ??
+      cloudEnvironment.get("SUPABASE_SECRET_KEY") ??
+      (projectRef ? await getCloudServiceRoleKey(projectRef) : undefined);
+
+    if (!supabaseUrl) {
+      fail("Set SUPABASE_PROJECT_REF in .env.cloud or provide SUPABASE_URL there.");
+    }
+    if (!serviceRoleKey) {
+      fail(
+        "Set SUPABASE_SERVICE_ROLE_KEY in .env.cloud, or provide SUPABASE_PROJECT_REF and log in with the Supabase CLI.",
+      );
+    }
+    if (serviceRoleKey.startsWith("sb_publishable_")) {
+      fail(
+        "The cloud catalog key is a publishable key, not a server-side key. Remove it from SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SECRET_KEY in .env.cloud; use a service_role or sb_secret key, or omit it and let the Supabase CLI fetch the service_role key.",
+      );
+    }
+    return { supabaseUrl, serviceRoleKey };
+  }
+
+  const localEnvironment = await loadEnvironmentFile(
+    ".env.catalog.local",
+    new Set(["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]),
+  );
+  const supabaseUrl = process.env.SUPABASE_URL || localEnvironment.get("SUPABASE_URL");
+  const serviceRoleKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    localEnvironment.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceRoleKey) {
+    fail(
+      "Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.catalog.local or the environment.",
+    );
+  }
+  return { supabaseUrl, serviceRoleKey };
+}
+
+async function validateCatalog(products) {
+  const categoryIds = await loadCategoryIds();
+  for (const product of products) {
+    if (!categoryIds.has(product.category)) {
+      fail(`The category "${product.category}" for ${product.name} is not defined in catalog/category.json.`);
+    }
+    const { directory } = await findImageDirectory(product);
+    const images = await listImages(directory);
+    console.log(
+      `${product.name}: ${product.sizes.length} sizes, ${product.availability}, ` +
+        `${images.length} images, ${product.category} ` +
+        `(${path.relative(projectRoot, directory)})`,
+    );
+    console.log(`  colours: ${images.map((image) => path.parse(image.fileName).name).join(", ")}`);
+  }
+  await warnAboutUnclaimedFolders(products);
+}
+
+// A folder that no product row points at would silently show nothing on the site.
+async function warnAboutUnclaimedFolders(products) {
+  const claimed = new Set();
+  for (const product of products) {
+    const { directory } = await findImageDirectory(product);
+    claimed.add(path.resolve(directory));
+  }
+  for (const categoryId of await loadCategoryIds()) {
+    const categoryDirectory = path.join(imageRoot, ...categoryId.split("/"));
+    for (const folder of await listFolders(categoryDirectory)) {
+      const directory = path.resolve(categoryDirectory, folder);
+      if (!claimed.has(directory) && !(await listFolders(directory)).length) {
+        console.warn(
+          `Warning: ${path.relative(projectRoot, directory)} has no matching row in catalog/products.csv.`,
+        );
+      }
+    }
+  }
+}
+
+async function syncCatalog(products, useCloud) {
+  const { supabaseUrl, serviceRoleKey } = await getCatalogCredentials(useCloud);
+  const client = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { data: buckets, error: bucketsError } = await client.storage.listBuckets();
+  if (bucketsError) {
+    throw new Error("Could not check Supabase Storage buckets.", { cause: bucketsError });
+  }
+  let imageBucket = buckets.find((bucket) => bucket.name === bucketName);
+  if (!imageBucket) {
+    const { data, error } = await client.storage.createBucket(bucketName, {
+      public: true,
+    });
+    if (error) {
+      throw new Error(`Could not create the public ${bucketName} bucket.`, {
+        cause: error,
+      });
+    }
+    imageBucket = data;
+  }
+  if (!imageBucket.public) {
+    const { data, error } = await client.storage.updateBucket(bucketName, {
+      public: true,
+    });
+    if (error) {
+      throw new Error(`Could not make the ${bucketName} bucket public.`, {
+        cause: error,
+      });
+    }
+    imageBucket = data;
+  }
+
+  const catalogSlugs = new Set(products.map((product) => product.slug));
+  const { data: savedProducts, error: savedProductsError } = await client
+    .from("products")
+    .select("id,slug")
+    .eq("active", true);
+  if (savedProductsError) {
+    throw new Error("Could not reconcile products removed from the spreadsheet.", {
+      cause: savedProductsError,
+    });
+  }
+
+  for (const savedProduct of savedProducts) {
+    if (catalogSlugs.has(savedProduct.slug)) {
+      continue;
+    }
+    const { error: deactivateProductError } = await client
+      .from("products")
+      .update({ active: false })
+      .eq("id", savedProduct.id);
+    if (deactivateProductError) {
+      throw new Error(`Could not deactivate removed product ${savedProduct.slug}.`, {
+        cause: deactivateProductError,
+      });
+    }
+    console.log(`Deactivated removed product: ${savedProduct.slug}.`);
+  }
+
+  for (const product of products) {
+    const { directory, folderName } = await findImageDirectory(product);
+    const images = await listImages(directory);
+    const { data: savedProduct, error: productError } = await client
+      .from("products")
+      .upsert(
+        {
+          name: product.name,
+          slug: product.slug,
+          description: product.description,
+          key_features: product.keyFeatures,
+          price: product.price,
+          category: product.category,
+          availability: product.availability,
+          active: true,
+          featured: false,
+        },
+        { onConflict: "slug" },
+      )
+      .select("id")
+      .single();
+    if (productError) {
+      throw new Error(`Could not save ${product.name}.`, { cause: productError });
+    }
+
+    const { error: deactivateVariantsError } = await client
+      .from("product_variants")
+      .update({ active: false })
+      .eq("product_id", savedProduct.id);
+    if (deactivateVariantsError) {
+      throw new Error(`Could not reconcile sizes for ${product.name}.`, {
+        cause: deactivateVariantsError,
+      });
+    }
+
+    const variants = product.sizes.map((size, index) => ({
+      product_id: savedProduct.id,
+      size,
+      sort_order: (index + 1) * 10,
+      sku: null,
+      stock_quantity: null,
+      active: true,
+    }));
+    const { error: variantsError } = await client
+      .from("product_variants")
+      .upsert(variants, { onConflict: "product_id,size" });
+    if (variantsError) {
+      throw new Error(`Could not save sizes for ${product.name}.`, {
+        cause: variantsError,
+      });
+    }
+
+    const imageRows = [];
+    for (const [index, image] of images.entries()) {
+      // Storage mirrors the catalog directory exactly:
+      // products/<category>/<product-folder>/<colour>.jpeg
+      const storagePath = `products/${product.category}/${folderName}/${image.fileName}`;
+      const { error: uploadError } = await client.storage
+        .from(bucketName)
+        .upload(storagePath, image.bytes, {
+          contentType: image.contentType,
+          cacheControl: "3600",
+          upsert: true,
+        });
+      if (uploadError) {
+        throw new Error(`Could not upload ${storagePath}.`, {
+          cause: uploadError,
+        });
+      }
+      imageRows.push({
+        product_id: savedProduct.id,
+        storage_path: storagePath,
+        alt_text: `${product.name} - ${path.parse(image.fileName).name.replace(/[-_]/g, " ")}`,
+        sort_order: index * 10,
+        active: true,
+      });
+    }
+
+    const { error: deactivateImagesError } = await client
+      .from("product_images")
+      .update({ active: false })
+      .eq("product_id", savedProduct.id);
+    if (deactivateImagesError) {
+      throw new Error(`Could not reconcile images for ${product.name}.`, {
+        cause: deactivateImagesError,
+      });
+    }
+    const { error: imagesError } = await client
+      .from("product_images")
+      .upsert(imageRows, { onConflict: "product_id,storage_path" });
+    if (imagesError) {
+      throw new Error(`Could not save image mappings for ${product.name}.`, {
+        cause: imagesError,
+      });
+    }
+
+    console.log(`Synced ${product.name}: ${variants.length} sizes, ${images.length} images.`);
+  }
+}
+
+async function main() {
+  const checkOnly = process.argv.includes("--check");
+  const useCloud =
+    process.argv.includes("--cloud") || process.env.npm_config_cloud === "true";
+  if (!checkOnly && !process.argv.includes("--sync")) {
+    fail("Choose --check to validate the spreadsheet or --sync to import it. Add --cloud to target the hosted project.");
+  }
+
+  const products = parseProducts(await readFile(catalogPath, "utf8"));
+  if (products.length === 0) {
+    fail("The product spreadsheet has no product rows.");
+  }
+
+  if (checkOnly) {
+    await validateCatalog(products);
+    console.log(`Validated ${products.length} products. No database changes made.`);
+  } else {
+    await syncCatalog(products, useCloud);
+  }
+}
+
+main().catch((error) => {
+  console.error(error.message);
+  if (error.cause) {
+    console.error(error.cause);
+  }
+  process.exitCode = 1;
+});

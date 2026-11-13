@@ -1,0 +1,450 @@
+# Local-First Development Requirement
+
+The entire Manvelle storefront must be developed and tested locally before deployment.
+
+Do NOT deploy to Byet.host or Supabase simply to test whether a feature works.
+
+The goal is:
+
+**Build locally → Test locally → Verify backend locally → Verify production configuration → Deploy → Run production smoke tests**
+
+---
+
+## 1. Local Development Environment
+
+The application must run completely from the local development environment.
+
+Expected stack:
+
+* React
+* Vite
+* Local development server
+* Supabase local development environment where practical
+* PostgreSQL through the local Supabase stack
+* Local product/image fixtures
+* Local test data
+
+The application should be able to run with a normal development command such as:
+
+```bash
+npm run dev
+```
+
+Do not hard-code production URLs into the application.
+
+---
+
+## 2. Environment Separation
+
+Maintain separate configuration for:
+
+### Local
+
+Used during development and testing.
+
+Example:
+
+```text
+VITE_SUPABASE_URL=<local-supabase-url>
+VITE_SUPABASE_ANON_KEY=<local-supabase-anon-key>
+```
+
+### Production
+
+Used only after the application has passed local testing.
+
+Example:
+
+```text
+VITE_SUPABASE_URL=<production-supabase-url>
+VITE_SUPABASE_ANON_KEY=<production-supabase-anon-key>
+```
+
+Never commit environment secrets.
+
+Never use production credentials during ordinary local development.
+
+Never use the Supabase service-role key in the frontend.
+
+---
+
+# 3. Local Database
+
+Build and test the database schema locally first.
+
+The local database should contain:
+
+* Products
+* Product variants
+* Product images/paths
+* Orders
+* Order items
+* Customers if implemented
+* Analytics/events if implemented
+
+Create proper migrations for the schema.
+
+Do not manually create the production database by clicking around the Supabase dashboard if the schema can instead be represented as migrations.
+
+The goal is for the production database to be reproducible from the project's migration files.
+
+---
+
+# 4. Database Migrations
+
+All important database changes must be represented in migration files.
+
+This includes:
+
+* Tables
+* Columns
+* Constraints
+* Indexes
+* Functions/RPCs
+* Triggers
+* RLS
+* RLS policies
+* Relevant seed data
+
+A fresh database should be capable of being initialized from the project's migrations.
+
+Do not make undocumented production-only database changes.
+
+---
+
+# 5. Local Seed Data
+
+Create a local seed dataset containing realistic Manvelle data.
+
+Include enough products and variants to test:
+
+* Multiple products
+* Multiple prices
+* Multiple sizes
+* Available products
+* Unavailable products
+* Different stock quantities
+* Product images
+* Different order states
+
+Do not use fake customer information that resembles real customers.
+
+Use clearly synthetic test data.
+
+---
+
+# 6. Local Product Images
+
+During development, product images may use local fixtures or development storage.
+
+Do not make the application dependent on production Supabase Storage just to display products during local development.
+
+The image architecture should allow production images to be switched in through configuration/data without rewriting the UI.
+
+---
+
+# 7. Local End-to-End Flow
+
+Before deployment, the following must work locally:
+
+```text
+Open storefront
+    ↓
+Browse products
+    ↓
+Open product
+    ↓
+Select size
+    ↓
+Select quantity
+    ↓
+Add to cart
+    ↓
+Checkout
+    ↓
+Submit customer information
+    ↓
+Create order in local database
+    ↓
+Generate order number
+    ↓
+Show confirmation
+    ↓
+Show WhatsApp handoff
+```
+
+The local database must contain the resulting order.
+
+Verify that the order data is correct.
+
+---
+
+# 8. Backend Testing Before Deployment
+
+Do not rely only on browser testing.
+
+Test the database/backend independently.
+
+Verify:
+
+### Product access
+
+Anonymous users can:
+
+* Read active products
+* Read valid variants
+* Read required catalogue information
+
+Anonymous users cannot:
+
+* Modify products
+* Modify prices
+* Modify inventory
+
+### Order access
+
+Anonymous users can:
+
+* Create a valid order through the intended mechanism
+
+Anonymous users cannot:
+
+* Read all orders
+* Read another customer's information
+* Modify an existing order
+* Change order totals
+* Change payment status
+* Change delivery status
+
+---
+
+# 9. Security Testing Locally
+
+Before deployment, intentionally attempt to break the application.
+
+Test scenarios such as:
+
+### Price manipulation
+
+Try submitting:
+
+```text
+product = GHS 300
+quantity = 1
+price = GHS 1
+total = GHS 1
+```
+
+The backend must reject or ignore the manipulated price.
+
+The database must calculate the authoritative value.
+
+### Invalid product
+
+Submit an invalid product ID.
+
+Expected:
+
+**Order rejected.**
+
+### Invalid variant
+
+Submit a variant that does not belong to the selected product.
+
+Expected:
+
+**Order rejected.**
+
+### Invalid quantity
+
+Try:
+
+```text
+quantity = 0
+quantity = -1
+quantity = extremely large number
+```
+
+Expected:
+
+**Order rejected.**
+
+### Unauthorized order access
+
+Attempt to retrieve another customer's order.
+
+Expected:
+
+**Access denied.**
+
+### Unauthorized modification
+
+Attempt to modify:
+
+* Price
+* Inventory
+* Order status
+* Payment status
+* Delivery status
+
+Expected:
+
+**Access denied.**
+
+---
+
+# 10. Test Duplicate Orders
+
+Test:
+
+* Double-clicking Complete Order
+* Repeated submission
+* Refreshing during submission
+* Network interruption during submission
+
+The application should minimize the possibility of creating duplicate orders.
+
+The order creation mechanism should have an appropriate deduplication/idempotency strategy where practical.
+
+---
+
+# 11. Production Database Setup
+
+Only after local testing passes should the production Supabase project be configured.
+
+The production database should be created from the same migration files used locally.
+
+Do not rewrite the schema manually for production.
+
+Then:
+
+1. Apply migrations.
+2. Configure production RLS.
+3. Create production Storage buckets/policies.
+4. Seed real Manvelle product data.
+5. Upload real product images.
+6. Configure production environment variables.
+7. Verify the production database.
+
+---
+
+# 12. Byet.host Deployment
+
+Only after the application works locally should the frontend be built:
+
+```bash
+npm run build
+```
+
+The resulting `dist` directory is the deployment artifact.
+
+Deploy the static frontend to Byet.host.
+
+The Byet server should primarily serve the React/Vite static application.
+
+Do not move business logic into PHP merely because Byet supports PHP.
+
+The application architecture remains:
+
+**Byet.host → Static React frontend**
+
+**Supabase → Database/backend/storage**
+
+---
+
+# 13. Production Configuration
+
+Before deploying the frontend, switch the environment configuration from local Supabase to production Supabase.
+
+Do not modify application source code to change environments.
+
+Use the appropriate production environment variables/configuration.
+
+After building, inspect the generated application to ensure:
+
+* No local Supabase URL remains
+* No development credentials remain
+* No service-role key exists
+* No secrets were bundled into the frontend
+
+---
+
+# 14. Production Smoke Test
+
+After deployment, perform a complete real-world test.
+
+Test:
+
+1. Open the production URL.
+2. Load the homepage.
+3. Load the shop.
+4. Open a product.
+5. Select a size.
+6. Add to cart.
+7. Checkout.
+8. Submit a test order.
+9. Verify the order appears in production Supabase.
+10. Verify the totals.
+11. Verify the order number.
+12. Verify the confirmation page.
+13. Verify WhatsApp handoff.
+14. Verify analytics events if implemented.
+
+Then test the administrative/order-management side.
+
+---
+
+# 15. Do Not Mix Environments
+
+The following must never happen accidentally:
+
+```text
+Local frontend
+    ↓
+Production database
+```
+
+or:
+
+```text
+Production frontend
+    ↓
+Local database
+```
+
+unless deliberately performing a controlled migration/test.
+
+Local and production environments must remain clearly separated.
+
+---
+
+# 16. Definition of Deployment Readiness
+
+Do not deploy because:
+
+* The homepage looks good.
+* The product page looks good.
+* The checkout visually works.
+
+Deploy only when:
+
+* Database schema works
+* Migrations work
+* RLS works
+* Order creation works
+* Price validation works
+* Inventory validation works
+* Duplicate submission is handled
+* Guest checkout works
+* Confirmation works
+* WhatsApp handoff works
+* Analytics foundation works
+* Local tests pass
+* Production configuration is ready
+
+
+note that we work on development branch and after everything is good we push to main. which is our deployment branch.
+
+The principle is:
+
+**Production should be a deployment of a tested system, not the place where we discover whether the system works.**

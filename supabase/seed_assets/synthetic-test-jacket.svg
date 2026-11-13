@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 800" role="img" aria-labelledby="title">
+  <title id="title">Synthetic test fixture - jacket illustration</title>
+  <rect width="640" height="800" fill="#e7e2d8"/>
+  <path d="m220 145 55-25h90l55 25 105 72-55 105-62-34v302H232V288l-62 34-55-105z" fill="#7d5943"/>
+  <path d="m275 120 45 65 45-65-18 495h-54z" fill="#c4a88e"/>
+  <path d="M235 355h62m108 0h-62M235 455h62m108 0h-62" stroke="#483326" stroke-width="9"/>
+  <rect x="32" y="665" width="576" height="82" rx="8" fill="#20221f"/>
+  <text x="320" y="715" fill="#fff" font-family="Arial, sans-serif" font-size="25" font-weight="700" text-anchor="middle">SYNTHETIC TEST FIXTURE</text>
+</svg>
