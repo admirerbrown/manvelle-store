@@ -1,5 +1,5 @@
 import { getSupabaseClient } from "../../lib/supabase/client";
-import { syncGtmConsent } from "./consent";
+import { initializeGoogleTagManager } from "./consent";
 
 export type StorefrontPage = "shop" | "checkout" | "confirmation";
 
@@ -66,7 +66,7 @@ const sessionIdPattern =
 
 export function trackStorefrontEvent(event: StorefrontClientEvent): void {
   try {
-    syncGtmConsent(true);
+    initializeGoogleTagManager();
     pushGtmEvent(event);
   } catch (cause) {
     console.error(

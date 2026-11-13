@@ -3,14 +3,11 @@ import {
   consentChangeEvent,
   getAnalyticsConsent,
   setAnalyticsConsent,
-  syncGtmConsent,
 } from "./consent";
 import "./consent.css";
 
 export function ConsentBanner() {
-  const [consent, setConsent] = useState<boolean | null>(
-    getAnalyticsConsent,
-  );
+  const [consent, setConsent] = useState<boolean | null>(getAnalyticsConsent);
   const [isOpen, setIsOpen] = useState(consent === null);
 
   useEffect(() => {
@@ -18,15 +15,9 @@ export function ConsentBanner() {
       const currentConsent = getAnalyticsConsent();
       setConsent(currentConsent);
       setIsOpen(currentConsent === null);
-      if (currentConsent !== null) {
-        syncGtmConsent(currentConsent);
-      }
     };
 
     window.addEventListener(consentChangeEvent, syncConsent);
-    if (consent !== null) {
-      syncGtmConsent(consent);
-    }
     return () => window.removeEventListener(consentChangeEvent, syncConsent);
   }, []);
 

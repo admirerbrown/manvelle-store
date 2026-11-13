@@ -9,11 +9,10 @@ vi.mock("../../../src/lib/supabase/client", () => ({
 import { trackStorefrontEvent } from "../../../src/features/analytics/analytics.service";
 import {
   captureCheckoutAttribution,
-  getAnalyticsConsent,
   setAnalyticsConsent,
 } from "../../../src/features/analytics/consent";
 
-describe("storefront analytics consent", () => {
+describe("storefront analytics", () => {
   beforeEach(() => {
     localStorage.clear();
     document.cookie = "_fbp=; Max-Age=0";
@@ -24,9 +23,7 @@ describe("storefront analytics consent", () => {
     rpcMock.mockResolvedValue({ error: null });
   });
 
-  it("sends ecommerce events to GTM and the private analytics RPC after consent", () => {
-    setAnalyticsConsent(true);
-
+  it("loads GTM and sends ecommerce events without a consent choice", () => {
     trackStorefrontEvent({
       name: "add_to_cart",
       productId: "product-1",
@@ -38,6 +35,16 @@ describe("storefront analytics consent", () => {
     });
 
     expect(document.getElementById("manvelle-gtm-script")).not.toBeNull();
+    expect(window.dataLayer).toContainEqual([
+      "consent",
+      "default",
+      {
+        ad_storage: "denied",
+        ad_user_data: "denied",
+        ad_personalization: "denied",
+        analytics_storage: "denied",
+      },
+    ]);
     expect(window.dataLayer).toContainEqual(
       expect.objectContaining({
         event: "add_to_cart",
@@ -67,34 +74,23 @@ describe("storefront analytics consent", () => {
     );
   });
 
-  it("still loads GTM and records marketing analytics even when the shopper rejects consent", () => {
+  it("keeps GTM loaded when optional analytics are rejected", () => {
     setAnalyticsConsent(false);
 
-    trackStorefrontEvent({
-      name: "page_view",
-      page: "shop",
-      pageLocation: "https://manvelle.example/",
-    });
-
-    expect(getAnalyticsConsent()).toBe(false);
     expect(document.getElementById("manvelle-gtm-script")).not.toBeNull();
-    expect(window.dataLayer).toContainEqual(
-      expect.objectContaining({
-        event: "page_view",
-        page_type: "shop",
-        page_location: "https://manvelle.example/",
-      }),
-    );
-    expect(rpcMock).toHaveBeenCalledWith(
-      "track_storefront_event",
-      expect.objectContaining({
-        p_event_name: "page_view",
-        p_page: "shop",
-      }),
-    );
+    expect(window.dataLayer).toContainEqual([
+      "consent",
+      "update",
+      {
+        ad_storage: "denied",
+        ad_user_data: "denied",
+        ad_personalization: "denied",
+        analytics_storage: "denied",
+      },
+    ]);
   });
 
-  it("captures Meta cookies only when consent is granted", () => {
+  it("captures Meta attribution cookies for checkout", () => {
     document.cookie = "_fbp=fb.1.123.456";
     document.cookie = "_fbc=fb.1.123.click";
 
@@ -111,6 +107,5 @@ describe("storefront analytics consent", () => {
       fbc: "fb.1.123.click",
       metaConsent: true,
     });
-    expect(getAnalyticsConsent()).toBe(true);
   });
 });

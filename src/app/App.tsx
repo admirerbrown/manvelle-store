@@ -5,10 +5,7 @@ import type {
   AnalyticsItem,
   StorefrontPage,
 } from "../features/analytics/analytics.service";
-import {
-  consentChangeEvent,
-  getAnalyticsConsent,
-} from "../features/analytics/consent";
+import { initializeGoogleTagManager } from "../features/analytics/consent";
 import {
   getCatalogueProductBySlug,
   getCatalogueProducts,
@@ -29,6 +26,7 @@ import {
 import { ProductCard } from "../features/catalogue/ProductCard";
 import { ProductPage } from "../features/catalogue/ProductPage";
 import { trackStorefrontEvent } from "../features/analytics/analytics.service";
+import { useTrackProductView } from "../features/analytics/useTrackProductView";
 import { ConsentBanner } from "../features/analytics/ConsentBanner";
 import { CartPanel, type CartItemView } from "../features/cart/CartPanel";
 import {
@@ -99,14 +97,8 @@ export function App() {
   const [isMobileCategoriesOpen, setIsMobileCategoriesOpen] = useState(false);
   const lastTrackedLocation = useRef<string | null>(null);
   const handledHash = useRef("");
-  const [analyticsConsent, setAnalyticsConsent] = useState(
-    getAnalyticsConsent,
-  );
-
   useEffect(() => {
-    const syncConsent = () => setAnalyticsConsent(getAnalyticsConsent());
-    window.addEventListener(consentChangeEvent, syncConsent);
-    return () => window.removeEventListener(consentChangeEvent, syncConsent);
+    initializeGoogleTagManager();
   }, []);
 
   useEffect(() => {
@@ -257,17 +249,7 @@ export function App() {
     route.name === "product"
       ? products.find((product) => product.slug === route.slug)
       : undefined;
-  // Fires for in-app clicks and for direct visits / refreshes of /products/<slug>.
-  useEffect(() => {
-    if (selectedProduct) {
-      trackStorefrontEvent({
-        name: "product_view",
-        productId: selectedProduct.id,
-        productName: selectedProduct.name,
-        price: selectedProduct.price,
-      });
-    }
-  }, [selectedProduct]);
+  useTrackProductView(selectedProduct);
 
   const cartItems: CartItemView[] = useMemo(
     () =>

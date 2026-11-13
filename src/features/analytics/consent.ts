@@ -35,42 +35,37 @@ export function setAnalyticsConsent(consent: boolean): void {
   window.dispatchEvent(new Event(consentChangeEvent));
 }
 
-export function syncGtmConsent(_consent: boolean): void {
+export function initializeGoogleTagManager(): void {
+  if (document.getElementById("manvelle-gtm-script")) return;
   const dataLayer = window.dataLayer ?? [];
   window.dataLayer = dataLayer;
 
-  const enabledConsent = true;
-  const consentState = getGtmConsentState(enabledConsent);
-
-  if (!document.getElementById("manvelle-gtm-script")) {
-    const containerId = import.meta.env.VITE_GTM_ID ?? "GTM-WHSN3754";
-    if (!/^GTM-[A-Z0-9]+$/.test(containerId)) {
-      throw new Error("The Google Tag Manager container ID is invalid.");
-    }
-
-    if (dataLayer.length === 0) {
-      dataLayer.push([
-        "consent",
-        "default",
-        {
-          ad_storage: "granted",
-          ad_user_data: "granted",
-          ad_personalization: "granted",
-          analytics_storage: "granted",
-        },
-      ]);
-    }
-    dataLayer.push(["consent", "update", consentState]);
-    dataLayer.push({ "gtm.start": Date.now(), event: "gtm.js" });
-
-    const script = document.createElement("script");
-    script.id = "manvelle-gtm-script";
-    script.async = true;
-    script.src = `https://www.googletagmanager.com/gtm.js?id=${encodeURIComponent(containerId)}`;
-    document.head.append(script);
-  } else if (dataLayer.length > 0) {
-    dataLayer.push(["consent", "update", consentState]);
+  const containerId = import.meta.env.VITE_GTM_ID ?? "GTM-WHSN3754";
+  if (!/^GTM-[A-Z0-9]+$/.test(containerId)) {
+    throw new Error("The Google Tag Manager container ID is invalid.");
   }
+
+  dataLayer.push([
+    "consent",
+    "default",
+    getGtmConsentState(getAnalyticsConsent() ?? false),
+  ]);
+  dataLayer.push({ "gtm.start": Date.now(), event: "gtm.js" });
+
+  const script = document.createElement("script");
+  script.id = "manvelle-gtm-script";
+  script.async = true;
+  script.src = `https://www.googletagmanager.com/gtm.js?id=${encodeURIComponent(containerId)}`;
+  document.head.append(script);
+}
+
+function syncGtmConsent(consent: boolean): void {
+  initializeGoogleTagManager();
+  window.dataLayer?.push([
+    "consent",
+    "update",
+    getGtmConsentState(consent),
+  ]);
 }
 
 export function captureCheckoutAttribution(): {
